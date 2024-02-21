@@ -7,9 +7,9 @@ This repository presents the benchmarks for the optimization of point clouds wit
 We concentrate on optimizing Vietoris Rips filtration of point clouds.
 
 Our implementation has following nice features:
-- Multiple methods: standard gradient descent, Conginuation [1], and Big Step [2]
-- High flexibility: you can specify any point clouds, persistence based losses or regularizations, ***without changing the implementation of the algorithms***.
-- Fast computation: basically, persistence homology will be computed by `giotto-ph` [3]. 
+- ***Multiple methods***: standard gradient descent, Conginuation [1], and Big Step [2].
+- ***High flexibility***: you can specify any point clouds, persistence based losses or regularizations, **without changing the implementation of the algorithms**.
+- ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
 If we need matrix decomposition, we use our fast implementation inspired by `ripser` [4].
 
 ## Usage of `scripts/ph_optimization.py`
