@@ -29,7 +29,7 @@ class Configuration:
             - time_limit(Optional[float], default=None): Time limit. If `None`, the optimization is performed until `num_epoch`.
             - log_interval(int, default=10): The logs (for example, loss value) are printed every `log_interval` epochs.
         - LOSS FUNCTION
-            - loss_obj(PersistenceBasedLoss, default=ExpandLoss(1, 1), topk=1): 
+            - loss_obj(PersistenceBasedLoss, default=ExpandLoss([1], 1), topk=1): 
                 Object that determines the loss function. You can define your own function in `persistence_based_loss.py`.
             - regularization_obj(Optional[Regularization], default=RectangleRegularization(-2., -2., 2., 2., 1., 2)): 
                 Regularization. You can define your own function in `regularization.py`.
@@ -52,7 +52,7 @@ class Configuration:
     time_limit: Optional[float] = None
     log_interval: int = 10
     ### LOSS FUNCTION ###
-    loss_obj: PersistenceBasedLoss = ExpandLoss(1, 1, topk=1)
+    loss_obj: PersistenceBasedLoss = ExpandLoss([1], 1, topk=1)
     regularization_obj: Optional[Regularization] = RectangleRegularization(-2., -2., 2., 2., 1., 2)
     ### METHOD ###
     method: str = "gd" # "gd", "bigstep", "continuation"
@@ -73,7 +73,10 @@ class Configuration:
     def print(self):
         print("===== Configuration =====")
         for k, v in self.__dict__.items():
-            print(f"{k}: {v}")
+            if "__name__" in dir(v):
+                print(f"{k}: {v.__name__}")
+            else:
+                print(f"{k}: {v}")
         sys.stdout.flush()
 
 def main(conf: Optional[Configuration] = None):
@@ -93,6 +96,7 @@ def main(conf: Optional[Configuration] = None):
     ### Optimization for `num_trial` different initial values ###
     loss_history_list: list[list[float]] = []; time_history_list: list[list[float]] = []
     for trial in range(conf.num_trial):
+        print(f"--- Trial {trial} ---")
         trial_start = time.time()
         ## Initialize the variables and the optimization method ##
         X = torch.tensor(dataset[trial], dtype=torch.float32, requires_grad=True)
@@ -187,7 +191,7 @@ def main(conf: Optional[Configuration] = None):
             # Note: loss_history_list[trial][cur_epoch] is after cur_epoch, loss_history_list[trial][cur_epoch-1] is before cur_epoch
             cur_epoch = 0 
             for t in time_linspace[1:]:
-                while cur_epoch < conf.num_epoch - 1 and time_history_list[trial][cur_epoch] < t:
+                while cur_epoch < len(loss_history_list[trial]) - 1 and time_history_list[trial][cur_epoch] < t:
                     cur_epoch += 1
                 time_loss_list[trial].append(loss_history_list[trial][cur_epoch])
         time_loss_mat = np.stack(time_loss_list, axis=0) # (num_trial + 1, 101)
@@ -211,5 +215,5 @@ if __name__ == "__main__":
     lr_list = [(4**i) * 1e-3 for i in range(5)]
     for method in method_list:
         for lr in lr_list:
-            config = Configuration(exp_name=f"{method}_lr{lr}", method=method, lr=lr)
+            config = Configuration(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=50, log_interval=1)
             main(config)

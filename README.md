@@ -20,8 +20,8 @@ You can simply run the command scripts/ph_optimization.py to try it out.
 Then, given a point cloud data with a circle and one outlier, the algorithms try to make the hole larger.
 Three algorithms will be run with multiple learning rates, and the results will be saved in the directory `results/sample`.
 
-You can also specify your favorite settings with the attributes in `Configuration` whose parameters are described in the following.
-For more details on how to use `Configuration`, please refer to the part below `if __name__ == "__main__":` in scripts/ph_optimization.py.
+You can also specify your favorite settings by changing the attributes in `Configuration` whose parameters are described in the following.
+For more details on how to use `Configuration`, please refer to the part below `if __name__ == "__main__":` in `scripts/ph_optimization.py`.
 Regarding data, loss functions and regularizations, the subsequent sections will clarify how to design them.
 
 Parameters of `Configuration`:
@@ -33,7 +33,7 @@ Parameters of `Configuration`:
     - time_limit(Optional[float], default=None): Time limit. If `None`, the optimization is performed until `num_epoch`.
     - log_interval(int, default=10): The logs (for example, loss value) are printed every `log_interval` epochs.
 - LOSS FUNCTION
-    - loss_obj(PersistenceBasedLoss, default=ExpandLoss(1, 1), topk=1): 
+    - loss_obj(PersistenceBasedLoss, default=ExpandLoss([1], 1, topk=1)): 
         Object that determines the loss function. You can define your own function in `persistence_based_loss.py`.
     - regularization_obj(Optional[Regularization], default=RectangleRegularization(-2., -2., 2., 2., 1., 2)): 
         Regularization. You can define your own function in `regularization.py`.

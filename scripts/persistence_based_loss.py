@@ -27,6 +27,7 @@ def get_rph(f):
         ret = f(_self, X, rph)
         if not rph_given:
             del rph
+        return ret
     return _get_rph
 
 class PersistenceBasedLoss:
@@ -36,7 +37,6 @@ class PersistenceBasedLoss:
     def __init__(self, dim_list: list[int], **kwargs):
         self.dim_list = dim_list
         self.maxdim = max(dim_list)
-        raise NotImplementedError
 
     @get_rph
     def __call__(self, X: torch.Tensor, rph=Optional[RipsPH]) -> torch.Tensor:
@@ -76,13 +76,13 @@ class ExpandLoss(PersistenceBasedLoss):
     """
     Loss to expand the holes in the point cloud, i.e., make the points in the PD far from the diagonal.
     - Parameters
-        - dim(int): the dimension of the persistent homology.
+        - dim_list(list[int]): list of dimensions of the persistent homology.
         - order(int, default=1): the order of Wasserstein distance.
-        - eps(float, default=None): if not `None`, the points in the PD with lifetime less than `eps` will be ignored.
-        - topk(int, default=None): if not `None`, the points in PD are sorted by lifetime in descending order, and only the top k points are considered.
+        - eps(float, default=0.): if not `None`, the points in the PD with lifetime less than `eps` will be ignored.
+        - topk(Optional[int], default=None): if not `None`, the points in PD are sorted by lifetime in descending order, and only the top k points are considered.
     """
-    def __init__(self, dim_list, order=1, eps=None, topk=None):
-        self.dim_list = dim_list
+    def __init__(self, dim_list: list[int], order: int=1, eps: float=0., topk: Optional[int]=None):
+        super().__init__(dim_list)
         self.order = order
         self.eps = eps
         self.topk = topk
@@ -106,10 +106,9 @@ class ExpandLoss(PersistenceBasedLoss):
         for dim in self.dim_list:
             bar_list = rph.get_bar_object_list(dim)
             # filter bars by eps and topk
-            if self.eps is not None:
-                bar_list = [bar for bar in bar_list if bar.death_time - bar.birth_time > self.eps]
+            bar_list = [bar for bar in bar_list if bar.death_time - bar.birth_time > self.eps]
             if self.topk is not None:
-                bar_list = sorted(bar_list, key=lambda x: x[1] - x[0], reverse=True)[:self.topk]
+                bar_list = sorted(bar_list, key=lambda bar: bar.death_time - bar.birth_time, reverse=True)[:self.topk]
             # specify the direction for target bars
             direction = torch.tensor([[-1., 1.] for _ in range(len(bar_list))])
             # add to the return value

@@ -96,7 +96,7 @@ class BigStep(PHOptimization):
             for i in range(len(bar_list)):
                 b_simp, d_simp = bar_list[i].birth_simp, bar_list[i].death_simp
                 b_direc, d_direc = direction[i]
-                b_target, d_target = bar_list[i].birth_time, bar_list[i].death_time
+                b_target, d_target = bar_list[i].birth_time + b_direc, bar_list[i].death_time + d_direc
                 if b_direc > 0: # increase birth
                     for simp in rph.W[dim][b_simp]:
                         if simp in high_target_value[dim]:
@@ -121,7 +121,7 @@ class BigStep(PHOptimization):
                             high_target_value[dim+1][simp] = max(d_target, high_target_value[dim+1][simp])
                         else:
                             high_target_value[dim+1][simp] = d_target
-        ### 補助損失を計算 ###
+        ### Compute Auxilary Loss ###
         aux_loss = 0
         for dim in range(self.loss_obj.maxdim+2): # すべての dim
             moving_simp = set(high_target_value[dim].keys()) | set(low_target_value[dim].keys())
@@ -129,18 +129,21 @@ class BigStep(PHOptimization):
                 diam: torch.Tensor = rph.get_differentiable_diameter(dim, simp) # 微分可能である必要がある
                 if (simp in high_target_value[dim]) and (simp in low_target_value[dim]):
                     # diam から遠い方を目標値にする
-                    if torch.relu(high_target_value[dim][simp] - diam) > torch.relu(diam - low_target_value[dim][simp]):
+                    high_diff = torch.relu(high_target_value[dim][simp] - diam)
+                    low_diff = torch.relu(diam - low_target_value[dim][simp])
+                    if high_diff > low_diff:
                         aux_loss += torch.relu(high_target_value[dim][simp] - diam) ** 2
-                    else:
+                    elif high_diff < low_diff:
                         aux_loss += torch.relu(diam - low_target_value[dim][simp]) ** 2
                 elif simp in high_target_value[dim]:
                     aux_loss += torch.relu(high_target_value[dim][simp] - diam) ** 2
                 elif simp in low_target_value[dim]:
                     aux_loss += torch.relu(diam - low_target_value[dim][simp]) ** 2
-        ### 一度勾配を計算し，gen_grad_norm とノルムが同じになるように補助損失をリスケール ###
+        ### Rescale Auxilary Loss to make the gradient norm of the loss and the auxilary loss equal ###
         aux_loss.backward(retain_graph=True)
         aux_grad_norm = torch.norm(self.X.grad)
-        aux_loss = aux_loss * gen_grad_norm / aux_grad_norm
+        aux_loss = aux_loss * gen_grad_norm / aux_grad_norm if aux_grad_norm > 0 else aux_loss
+        self.optimizer.zero_grad()
         ### 正則化を加算して勾配を計算し，パラメータを更新 ###
         aux_loss = aux_loss + self.reg_obj(self.X)
         aux_loss.backward()
@@ -174,6 +177,8 @@ class Continuation(PHOptimization):
         """
         if not X.requires_grad:
             raise ValueError("X.requires_grad must be True")
+        if not bar_list: # nothing to do
+            return X
         ### \phi(x, y) = Pers(\Phi(x)) - y とそのヤコビ行列を求める．xは現在の点群．y は目標とする PD．###
         phi: list[torch.Tensor] = []
         _jacobi: list[torch.Tensor] = []
@@ -187,26 +192,26 @@ class Continuation(PHOptimization):
             d_time: torch.Tensor = torch.norm(X[dv1] - X[dv2])
             _jacobi.append(torch.autograd.grad(d_time, X)[0])
             # \phi(x, y) の2成分を格納
-            phi.append(b_direction); phi.append(d_direction)
+            phi.append(-b_direction); phi.append(-d_direction) # NOTE: `phi` represents the value `current - target`
         phi_tensor: torch.Tensor = torch.stack(phi, dim=0).detach() # (2 * num_pairs)
         jacobi: torch.Tensor = torch.stack(_jacobi, dim=0) # (2 * num_pairs) x num_pts x pts_dim
         # jacobi の擬似逆行列を使って X を更新
         jacobi_flatten = jacobi.view(-1, jacobi.shape[1] * jacobi.shape[2]) # (2 * num_pairs) x (num_pts * pts_dim)
         jacobi_pinv = torch.linalg.pinv(jacobi_flatten).transpose(0, 1).view_as(jacobi) # (2 * num_pairs) x num_pts x pts_dim 
-        X = X - torch.einsum("ijk,i->jk", jacobi_pinv, phi_tensor) # num_pts x pts_dim
+        X = X - scale * torch.einsum("ijk,i->jk", jacobi_pinv, phi_tensor) # num_pts x pts_dim
         return X
     
     def update(self) -> None:
-        if self.cur_out_iter >= self.out_iter_num:
-            raise ValueError("Continuation is already finished")
-        self.cur_out_iter += 1
         ### 各単体を動かす向きを計算 ###
         direction_info = self.loss_obj.get_direction(self.X) # 注意：rph は必要ない．giotto-ph を使える．
         # bar_list と direction を作成
-        bar_list: list[Bar] = []; direction: list[torch.Tensor] = []
+        bar_list: list[Bar] = []
+        direction: list[torch.Tensor] = []
         for dim, bar_list_dim, direction_dim in direction_info:
             bar_list += bar_list_dim
             direction += direction_dim
+        if not bar_list: # nothing to do
+            return
         direction = torch.stack(direction, dim=0)
         ### 内部ループ ###
         for in_iter in range(self.in_iter_num):

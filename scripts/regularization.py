@@ -30,11 +30,12 @@ class Regularization:
 
 class RectangleRegularization(Regularization):
     def __init__(self, x_min: float, y_min: float, x_max: float, y_max: float, lamb: float, order: int):
-        self.lamb = lamb
         self.x_min = x_min
         self.y_min = y_min
         self.x_max = x_max
         self.y_max = y_max
+        self.lamb = lamb
+        self.order = order
     
     def __call__(self, X):
         penalty_x = torch.relu(X[:, 0] - self.x_max) + torch.relu(self.x_min - X[:, 0])

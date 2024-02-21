@@ -135,7 +135,7 @@ class RipsPH(RipsPersistentHomology):
                     b_time_list.append(torch.tensor(0.))
                     d_time_list.append(self.dist_mat[dv1, dv2])
             else:
-                for bv1, bv2, dv1, dv2 in self.giotto_dgm["gens"][1]:
+                for bv1, bv2, dv1, dv2 in self.giotto_dgm["gens"][1][dim-1]:
                     b_time_list.append(self.dist_mat[bv1, bv2])
                     d_time_list.append(self.dist_mat[dv1, dv2])
             
@@ -167,12 +167,14 @@ class RipsPH(RipsPersistentHomology):
                 b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
                 ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
         else:
+            if self.giotto_dgm is None:
+                self._call_giotto_ph()
             if dim == 0:
                 for bv, dv1, dv2 in self.giotto_dgm["gens"][0]:
                     d_time = self.dist_mat[dv1, dv2]
                     ret.append(Bar(0, d_time, bv, None, dv1, dv2))
             else:
-                for bv1, bv2, dv1, dv2 in self.giotto_dgm["gens"][1]:
+                for bv1, bv2, dv1, dv2 in self.giotto_dgm["gens"][1][dim-1]:
                     b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
                     ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2))
 
