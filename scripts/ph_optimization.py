@@ -17,34 +17,53 @@ from lib.ph_optimization_library import *
 
 @dataclasses.dataclass
 class Configuration:
+    """
+    Configuration for persistence homology optimization.
+
+    Parameters:
+        - COMMON SETTINGS
+            - exp_name(str, default=""): Experiment name. This will be used as a directory name to save the results.
+            - data_func(Callable, default=circle_with_one_outlier): Data generating function. You can define your own function in `data_loader.py`.
+            - num_trial(int, default=1): If you want to perform the optimization multiple times with different initial values and see the average results, set this parameter.
+            - num_epoch(int, default=100): Number of epochs. If `None`, the optimization is performed until `time_limit`.
+            - time_limit(Optional[float], default=None): Time limit. If `None`, the optimization is performed until `num_epoch`.
+            - log_interval(int, default=10): The logs (for example, loss value) are printed every `log_interval` epochs.
+        - LOSS FUNCTION
+            - loss_obj(PersistenceBasedLoss, default=ExpandLoss(1, 1), topk=1): 
+                Object that determines the loss function. You can define your own function in `persistence_based_loss.py`.
+            - regularization_obj(Optional[Regularization], default=RectangleRegularization(-2., -2., 2., 2., 1., 2)): 
+                Regularization. You can define your own function in `regularization.py`.
+        - METHOD
+            - method(str, default="gd"): Optimization method. "gd", "bigstep", or "continuation".
+            - lr(float, default=1e-1): Learning rate.
+            - reg_proj(bool, default=False): 
+                If `True`, the algorithm projects the variables to the region where the regularization term is zero at the end of each epoch.
+            - optimizer_conf(dict, default={}): Configuration for the optimizer used in "gd" and "bigstep". You can specify the following keys:
+                - "name"(str, default="SGD"): Name of the optimizer. You can choose from "SGD" and "Adam".
+            - scheduler_conf(dict, default={}): Configuration for the scheduler. You can specify the following keys:
+                - "name"(str, default="const"): Name of the scheduler. You can choose from "const" and "TransformerLR".
+            - num_in_iter(int, default=1): Number of iterations in the continuation method.
+    """
+    ### COMMON SETTINGS ###
     exp_name: str = ""
-    ### 共通設定 ###
-    # データ
     data_func: Callable = circle_with_one_outlier
-    # 繰り返し回数
-    num_trial: int = 20
-    # エポック数
-    num_epoch: int = 500
-    # ログ表示の間隔
-    log_interval: int = 50
-    # 時間制限（エポック数を設定しない場合のみ）
+    num_trial: int = 1
+    num_epoch: Optional[int] = 100
     time_limit: Optional[float] = None
-    ### 損失関数 ###
-    # 損失関数の種類
-    loss_obj: PersistenceBasedLoss = ExpandLoss(1, 1)
+    log_interval: int = 10
+    ### LOSS FUNCTION ###
+    loss_obj: PersistenceBasedLoss = ExpandLoss(1, 1, topk=1)
     regularization_obj: Optional[Regularization] = RectangleRegularization(-2., -2., 2., 2., 1., 2)
-    ### 手法関連 ###
+    ### METHOD ###
     method: str = "gd" # "gd", "bigstep", "continuation"
     lr: float = 1e-1
-    reg_proj: bool = False # 正則化項 = 0 となる領域に射影するかどうか
-    # for gd and bigstep
-    optimizer_conf: dict = dataclasses.field(default_factory=dict)
-    scheduler_conf: dict = dataclasses.field(default_factory=dict)
-    # for continuation
-    num_in_iter: int = 1
+    reg_proj: bool = False
+    optimizer_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
+    scheduler_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
+    num_in_iter: int = 1 # for continuation
     
     def __post_init__(self):
-        # 条件による設定の変更
+        # Check if `num_epoch` and `time_limit` are set correctly.
         if (self.num_epoch is not None) and (self.time_limit is not None):
             print("`num_epoch` and time_limit are both set. `time_limit` is ignored.")
             self.time_limit = None
@@ -64,17 +83,18 @@ def main(conf: Optional[Configuration] = None):
     if len(sys.argv) >= 2:
         savedirpath = sys.argv[1]
     else:
-        savedirpath = "results/ph_optimization/sample"
+        savedirpath = "results/sample"
     if conf.exp_name != "":
         savedirpath += f"/{conf.exp_name}"
         if not os.path.exists(savedirpath):
             os.makedirs(savedirpath)
-    ### データの読み取り ###
+    ### Read data ###
     dataset = get_data(conf.data_func, 100)
-    ### num_trial 個の初期データに対して最適化を行う ###
+    ### Optimization for `num_trial` different initial values ###
     loss_history_list: list[list[float]] = []; time_history_list: list[list[float]] = []
     for trial in range(conf.num_trial):
         trial_start = time.time()
+        ## Initialize the variables and the optimization method ##
         X = torch.tensor(dataset[trial], dtype=torch.float32, requires_grad=True)
         if conf.method == "gd":
             poh = GradientDescent(X, conf.loss_obj, conf.regularization_obj, reg_proj=conf.reg_proj, 
@@ -87,18 +107,19 @@ def main(conf: Optional[Configuration] = None):
                                lr=conf.lr, in_iter_num=conf.num_in_iter)
         else:
             raise NotImplementedError
+        ## Optimization ##
         X_history = []; loss_history = []; time_history = [0]
         epoch = -1; ellapsed_time = 0
         while ((conf.num_epoch is not None and epoch < conf.num_epoch - 1) 
                 or (conf.time_limit is not None and ellapsed_time < conf.time_limit)):
             epoch += 1; ellapsed_time += time_history[-1]
-            # 損失の計算 + 記録 + 出力
+            # Compute loss, record it, and output it to the console
             loss = poh.get_loss()
             loss_history.append(loss.item())
             X_history.append(poh.X.detach().clone())
             if epoch % conf.log_interval == 0:
                 print(f"epoch: {epoch}, loss: {loss.item()}", flush=True)
-            # 変数の更新 + 時間計測
+            # update the variables with the specified method and measure the time of epoch
             start = time.time()
             poh.update()
             time_history.append(time.time() - start)
@@ -106,12 +127,13 @@ def main(conf: Optional[Configuration] = None):
         loss_history.append(loss.item())
         X_history.append(poh.X.detach().clone())
         print(f"Final loss: {loss.item()}")
-        ## time_history を累積和に変換 ##
+        ## Finish the optimization and record the results ##
+        # convert time_history to cumulative time
         time_history = list(accumulate(time_history))
-        ## loss_history, time_history を loss_history_list, time_history_list に追加 ##
+        # add loss_history, time_history to the list
         loss_history_list.append(loss_history)
         time_history_list.append(time_history)
-        ## trial = 0 の場合は X_history を ndarray と gif で保存 ##
+        ## For the first trial, save X_history as ndarray and gif ##
         if trial == 0:
             with open(f"{savedirpath}/X_history.pkl", "wb") as f:
                 pickle.dump(X_history, f)
@@ -126,17 +148,20 @@ def main(conf: Optional[Configuration] = None):
                 return sc, 
             anim = animation.FuncAnimation(fig, pc_update, frames=X_history.shape[0], interval=100)
             anim.save(f"{savedirpath}/X_history.gif", writer='pillow')
+        ## Finish the trial ##
         print(f"Trial {trial} finished. ellapsed time: {time.time() - trial_start}", flush=True)
 
-    ### 結果の可視化・保存 ###
-    ## epoch - loss の可視化 ##
-    if conf.num_epoch is None: # エポックとロスの散布図
+    ### Visualization and saving the results ###
+    ## visualization of the transition of the loss over epochs ##
+    if conf.num_epoch is None: 
+        # Then, scatter between epoch and loss
         fig = plt.figure(); ax = fig.add_subplot(111)
         for trial in range(conf.num_trial):
             ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
         ax.set_xlabel("epoch"); ax.set_ylabel("loss")
         fig.savefig(f"{savedirpath}/epoch-loss.png")
-    else:
+    else: 
+        # Then, mean and std of the loss over trials
         loss_history_mat = np.stack(loss_history_list, axis=0) # (num_trial, num_epoch+1)
         loss_mean = np.mean(loss_history_mat, axis=0)
         loss_std = np.std(loss_history_mat, axis=0)
@@ -145,19 +170,21 @@ def main(conf: Optional[Configuration] = None):
         ax.fill_between(np.arange(loss_mean.shape[0]), loss_mean - loss_std, loss_mean + loss_std, color="blue", alpha=0.3)
         ax.set_xlabel("epoch"); ax.set_ylabel("loss")
         fig.savefig(f"{savedirpath}/epoch-loss.png")
-    ## time - loss の可視化 ##
-    if conf.time_limit is None: # 時間とロスの散布図
+    ## visualization of the transition of the loss over time ##
+    if conf.time_limit is None: 
+        # Then, scatter between time and loss
         fig = plt.figure(); ax = fig.add_subplot(111)
         for trial in range(conf.num_trial):
             ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
         ax.set_xlabel("time"); ax.set_ylabel("loss")
         fig.savefig(f"{savedirpath}/time-loss.png")
-    else:
+    else: 
+        # Then, mean and std of the loss over trials
         time_linspace = np.linspace(0, conf.time_limit, 101)
         time_loss_list = [[loss_history_list[trial][0]] for trial in range(conf.num_trial)]
         for trial in range(conf.num_trial):
-            # 時刻 t のときの loss は，t より前の最後の loss とする
-            # 注： time_history_list[trial][cur_step] は cur_epoch 終了後，loss_history_list[trial][cur_step] は開始前
+            # loss value at time t is the last loss value before t
+            # Note: loss_history_list[trial][cur_epoch] is after cur_epoch, loss_history_list[trial][cur_epoch-1] is before cur_epoch
             cur_epoch = 0 
             for t in time_linspace[1:]:
                 while cur_epoch < conf.num_epoch - 1 and time_history_list[trial][cur_epoch] < t:
@@ -171,7 +198,7 @@ def main(conf: Optional[Configuration] = None):
         ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
         ax.set_xlabel("time"); ax.set_ylabel("loss")
         fig.savefig(f"{savedirpath}/time-loss.png")
-    # 結果を pickle で保存
+    ## save loss_history_list and time_history_list ##
     result_dict = {
         "loss_history": loss_history_list,
         "time_history": time_history_list,
@@ -180,20 +207,9 @@ def main(conf: Optional[Configuration] = None):
         pickle.dump(result_dict, f)
     
 if __name__ == "__main__":
-    data_type_list = ["circle-w-one-outlier", "voronoi"]
-    method_list = ["bigstep"]
+    method_list = ["gd", "bigstep", "continuation"]
     lr_list = [(4**i) * 1e-3 for i in range(5)]
-    scheduler_list = ["const"]
-    idx = -1
-    for data_type, method, lr, scheduler in product(data_type_list, method_list, lr_list, scheduler_list):
-        idx += 1
-        main(Configuration({
-            "data_type": data_type, 
-            "num_epoch": 100, 
-            "log_interval": 50,
-            "loss_order": 1, 
-            "reg_proj": True,
-            "method": method,
-            "lr": lr, 
-            "scheduler_conf": {"name": scheduler}, 
-            "exp_name": f"exp-{str(idx).zfill(3)}"}))
+    for method in method_list:
+        for lr in lr_list:
+            config = Configuration(exp_name=f"{method}_lr{lr}", method=method, lr=lr)
+            main(config)

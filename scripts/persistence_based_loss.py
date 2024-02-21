@@ -42,6 +42,7 @@ class PersistenceBasedLoss:
     def __call__(self, X: torch.Tensor, rph=Optional[RipsPH]) -> torch.Tensor:
         """
         Compute the loss.
+        Note that when implementing this method, you need to apply the get_rph decorator.
 
         Parameters:
             - X(torch.Tensor): point cloud. shape=(# of points, dim)
@@ -57,6 +58,7 @@ class PersistenceBasedLoss:
         """
         Get the direction to which the points in PD should be moved.
         This function is used in BigStep and Continuation.
+        Note that when implementing this method, you need to apply the get_rph decorator.
         
         Parameters:
             - X(torch.Tensor): point cloud. shape=(# of points, dim)

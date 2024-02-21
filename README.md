@@ -4,13 +4,15 @@ By Naoki Nishikawa ([GitHub](https://github.com/git-westriver), [Homepage](https
 and Yuichi Ike ([Homepage](https://sites.google.com/view/yuichi-ike))
 
 This repository presents the benchmarks for the optimization of point clouds with persistent based loss.
-We concentrate on optimizing Vietoris Rips filtration of point clouds.
+We aim to compare the exisiting methods to optimize persistence based loss when we use Vietoris Rips filtration of point clouds.
 
 Our implementation has following nice features:
 - ***Multiple methods***: standard gradient descent, Conginuation [1], and Big Step [2].
 - ***High flexibility***: you can specify any point clouds, persistence based losses or regularizations, **without changing the implementation of the algorithms**.
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
 If we need matrix decomposition, we use our fast implementation inspired by `ripser` [4].
+
+[TODO] Add some figures to demonstrate how the benchmark works.
 
 ## Usage of `scripts/ph_optimization.py`
 
