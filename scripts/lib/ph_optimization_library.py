@@ -139,11 +139,11 @@ class BigStep(PHOptimization):
                     aux_loss += torch.relu(high_target_value[dim][simp] - diam) ** 2
                 elif simp in low_target_value[dim]:
                     aux_loss += torch.relu(diam - low_target_value[dim][simp]) ** 2
-        ### Rescale Auxilary Loss to make the gradient norm of the loss and the auxilary loss equal ###
+        ### Rescale Auxilary Loss to make the gradient norm of the auxilary loss equal to that of the persistence based loss ###
         aux_loss.backward(retain_graph=True)
         aux_grad_norm = torch.norm(self.X.grad)
-        aux_loss = aux_loss * gen_grad_norm / aux_grad_norm if aux_grad_norm > 0 else aux_loss
         self.optimizer.zero_grad()
+        aux_loss = aux_loss * gen_grad_norm / aux_grad_norm if aux_grad_norm > 0 else aux_loss
         ### 正則化を加算して勾配を計算し，パラメータを更新 ###
         aux_loss = aux_loss + self.reg_obj(self.X)
         aux_loss.backward()

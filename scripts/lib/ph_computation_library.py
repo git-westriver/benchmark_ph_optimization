@@ -6,9 +6,23 @@ import numpy as np
 from gph import ripser_parallel
 
 class Bar:
+    """
+    Bar object to represent a bar in the barcode.
+
+    Parameters:
+        - birth_time(float): birth time. Note that this is `float` type, not `torch.Tensor`.
+        - death_time(float): death time. Note that this is `float` type, not `torch.Tensor`.
+        - birth_v1(int): vertex index of the birth simplex.
+        - birth_v2(Optional[int]): vertex index of the birth simplex. If the birth simplex is a vertex, `None`.
+        - death_v1(int): vertex index of the death simplex.
+        - death_v2(int): vertex index of the death simplex.
+        - birth_simp(Optional[int]): index of the birth simplex. If giotto-ph is used to compute PH, `None`.
+        - death_simp(Optional[int]): index of the death simplex. If giotto-ph is used to compute PH, `None`.
+    """
     def __init__(self, birth_time: float, death_time: float, 
                  birth_v1: int, birth_v2: Optional[int], death_v1: int, death_v2: int,
                  birth_simp: Optional[int]=None, death_simp: Optional[int]=None):
+        assert type(birth_time) == float and type(death_time) == float
         self.birth_v1: int = birth_v1
         self.birth_v2: int = birth_v2
         self.death_v1: int = death_v1
@@ -159,23 +173,26 @@ class RipsPH(RipsPersistentHomology):
                 bv1, bv2 = self.get_max_edge(dim, b_simp)
                 dv1, dv2 = self.get_max_edge(dim+1, d_simp)
                 b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
+                b_time, d_time = float(b_time), float(d_time)
                 ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
         elif self.get_ph_right:
             for b_simp, d_simp in self.birth_to_death[dim].items():
                 bv1, bv2 = self.get_max_edge(dim, b_simp)
                 dv1, dv2 = self.get_max_edge(dim+1, d_simp)
                 b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
+                b_time, d_time = float(b_time), float(d_time)
                 ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
         else:
             if self.giotto_dgm is None:
                 self._call_giotto_ph()
             if dim == 0:
                 for bv, dv1, dv2 in self.giotto_dgm["gens"][0]:
-                    d_time = self.dist_mat[dv1, dv2]
+                    d_time = float(self.dist_mat[dv1, dv2])
                     ret.append(Bar(0, d_time, bv, None, dv1, dv2))
             else:
                 for bv1, bv2, dv1, dv2 in self.giotto_dgm["gens"][1][dim-1]:
                     b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
+                    b_time, d_time = float(b_time), float(d_time)
                     ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2))
 
         return ret

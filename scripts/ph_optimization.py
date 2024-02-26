@@ -215,5 +215,5 @@ if __name__ == "__main__":
     lr_list = [(4**i) * 1e-3 for i in range(5)]
     for method in method_list:
         for lr in lr_list:
-            config = Configuration(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=50, log_interval=1)
+            config = Configuration(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=None, time_limit=100)
             main(config)
