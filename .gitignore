@@ -4,3 +4,5 @@ __pycache__/
 
 results/sample
 results/sample*
+
+notebooks/create_figures*
