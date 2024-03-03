@@ -10,12 +10,11 @@ Our implementation has following nice features:
 - ***Multiple methods***: standard gradient descent, Conginuation [1], and Big Step [2].
 - ***High flexibility***: you can specify any point clouds, persistence based losses or regularizations, **without changing the implementation of the algorithms**.
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
-If we need matrix decomposition, we use our fast implementation inspired by `ripser` [4].
-
+If we need matrix decomposition, we use our fast implementation inspired by [4].
 
 ## Demo
 
-![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/bcae6e98-3dd1-48fa-87f5-b7e525a2b0a8)
+![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/b30ad98f-721c-45a2-befd-e263b5621eb4)
 
 ## Usage of `scripts/ph_optimization.py`
 
@@ -60,12 +59,39 @@ This function generates a point cloud data with a circle with radius 1 (+ unifor
 
 You can define your own data generating function.
 When implementing this function yourself, please pay attention to the following points.
-- The function should take one argument `num_data` (int).
-- The function should return a numpy array of shape `(num_data, dim)`.
+- The function should take one argument `num_pts` (int), which represents the number of points in the point cloud.
+- The function should return a numpy array of shape `(1000, num_pts, dim)`.
+Note that you have to create 1000 point clouds.
 
 ## Persistence-based loss functions
 
+The class which determines the loss function is defined in `scripts/persistence_based_loss.py`.
+In the default setting of `Configuration`, the class `ExpandLoss` is used.
+This class defines the loss function that tries to expand the hole in the persistence diagram.
+
+You can define your own class to use your favorite loss function.
+When implementing this class yourself, please pay attention to the following points.
+- The class should inherit `PersistenceBasedLoss`.
+- You have to implement the method `__call__` and `get_direction`. 
+We describe the role of these methods in the following.
+See the comments in the `PersistenceBasedLoss` for more details on how to implement these methods.
+    - `__call__`: the method to compute the loss value.
+    - `get_direction`: the method to get the desireble direction to move for each point in the persistent diagram. 
+
 ## Regularizations
+
+The class which determines the regularization is defined in `scripts/regularization.py`.
+In the default setting of `Configuration`, the class `RectangleRegularization` is used.
+This class defines the regularization that restricts the point cloud to a rectangle.
+
+You can define your own class to use your favorite regularization.
+When implementing this class yourself, please pay attention to the following points.
+- The class should inherit `Regularization`.
+- You have to implement the method `__call__` and `projection`. 
+We describe the role of these methods in the following.
+See the comments in the `Regularization` for more details on how to implement these methods.
+    - `__call__`: the method to compute the value of regularization term.
+    - `projection`: the method to project the variables to the region where the regularization term is zero.
 
 ## References
 
@@ -73,6 +99,6 @@ When implementing this function yourself, please pay attention to the following 
 
 [2] Arnur Nigmetov and Dmitriy Morozov. Topological optimization with big steps. arXiv:2203.16748, 2022.
 
-[3] 
+[3] Julián Burella Pérez, Sydney Hauke, Umberto Lupo, Matteo Caorsi, Alberto Dassatti. Giotto-ph: A Python Library for High-Performance Computation of Persistent Homology of Vietoris–Rips Filtrations.arXiv:2107.05412, 2021.
 
-[4] 
+[4] Ulrich Bauer. Ripser: efficient computation of Vietoris-Rips persistence barcodes. Journal of Applied and Computational Topology, 5(3):391-423, 2021.
