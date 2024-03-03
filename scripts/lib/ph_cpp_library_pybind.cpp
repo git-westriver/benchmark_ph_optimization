@@ -19,8 +19,8 @@ PYBIND11_MODULE(example3, m) {
 }
 
 PYBIND11_MODULE(dsu_cpp, m) {
-    py::class_<DSU>(m, "DSU") // 構造体であっても class_ でバインディングします。
-        .def(py::init<int>()) // コンストラクタの引数です。
+    py::class_<DSU>(m, "DSU")
+        .def(py::init<int>())
         .def("merge", &DSU::merge)
         .def("same", &DSU::same)
         .def("leader", &DSU::leader)
@@ -30,8 +30,8 @@ PYBIND11_MODULE(dsu_cpp, m) {
 }
 
 PYBIND11_MODULE(rips_cpp, m) {
-    py::class_<RipsPersistentHomology>(m, "RipsPersistentHomology") // 構造体であっても class_ でバインディング
-        .def(py::init<vector<vector<diameter_t>>, dim_t, unsigned long long>(), // コンストラクタの引数
+    py::class_<RipsPersistentHomology>(m, "RipsPersistentHomology")
+        .def(py::init<vector<vector<diameter_t>>, dim_t, unsigned long long>(), 
             py::arg("dist"), py::arg("maxdim"), py::arg("num_threads")=1ULL) 
         .def("binomial", &RipsPersistentHomology::binomial) 
         .def("get_simplex_index", &RipsPersistentHomology::get_simplex_index)
