@@ -12,13 +12,17 @@ Our implementation has following nice features:
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
 If we need matrix decomposition, we use our fast implementation inspired by `ripser` [4].
 
-[TODO] Add some figures to demonstrate how the benchmark works.
+
+## Demo
+
+![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/bcae6e98-3dd1-48fa-87f5-b7e525a2b0a8)
 
 ## Usage of `scripts/ph_optimization.py`
 
 You can simply run the command scripts/ph_optimization.py to try it out.
-Then, given a point cloud data with a circle and one outlier, the algorithms try to make the hole larger.
-Three algorithms will be run with multiple learning rates, and the results will be saved in the directory `results/sample`.
+Then, given a point cloud data with a circle and one outlier, the three algorithms try to make the hole larger with multiple learning rates.
+The results will be saved in the directory `results/sample` in default.
+If you specify the directory name as the first argument when executing the python code like `python scripts/ph_optimization.py {directory_name}`, the results will be saved in that directory.
 
 You can also specify your favorite settings by changing the attributes in `Configuration` whose parameters are described in the following.
 For more details on how to use `Configuration`, please refer to the part below `if __name__ == "__main__":` in `scripts/ph_optimization.py`.
@@ -49,6 +53,15 @@ Parameters of `Configuration`:
     - num_in_iter(int, default=1): Number of iterations in the continuation method.
 
 ## Data
+
+The function to provide point cloud data is defined in `scripts/data_loader.py`.
+In the default setting of `Configuration`, the function `circle_with_one_outlier` is used.
+This function generates a point cloud data with a circle with radius 1 (+ uniform noise) and one outlier near the origin.
+
+You can define your own data generating function.
+When implementing this function yourself, please pay attention to the following points.
+- The function should take one argument `num_data` (int).
+- The function should return a numpy array of shape `(num_data, dim)`.
 
 ## Persistence-based loss functions
 

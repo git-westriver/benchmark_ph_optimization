@@ -1,8 +1,9 @@
 .DS_Store
 __pycache__/
 .ipynb_checkpoints
+*.log
 
 results/sample
-results/sample*
+bash
 
-notebooks/create_figures*
+notebooks/private

@@ -25,7 +25,7 @@ class Configuration:
             - exp_name(str, default=""): Experiment name. This will be used as a directory name to save the results.
             - data_func(Callable, default=circle_with_one_outlier): Data generating function. You can define your own function in `data_loader.py`.
             - num_trial(int, default=1): If you want to perform the optimization multiple times with different initial values and see the average results, set this parameter.
-            - num_epoch(int, default=100): Number of epochs. If `None`, the optimization is performed until `time_limit`.
+            - num_epoch(int, default=None): Number of epochs. If `None`, the optimization is performed until `time_limit`.
             - time_limit(Optional[float], default=None): Time limit. If `None`, the optimization is performed until `num_epoch`.
             - log_interval(int, default=10): The logs (for example, loss value) are printed every `log_interval` epochs.
         - LOSS FUNCTION
@@ -48,7 +48,7 @@ class Configuration:
     exp_name: str = ""
     data_func: Callable = circle_with_one_outlier
     num_trial: int = 1
-    num_epoch: Optional[int] = 100
+    num_epoch: Optional[int] = None
     time_limit: Optional[float] = None
     log_interval: int = 10
     ### LOSS FUNCTION ###
@@ -211,9 +211,9 @@ def main(conf: Optional[Configuration] = None):
         pickle.dump(result_dict, f)
     
 if __name__ == "__main__":
-    method_list = ["gd", "bigstep", "continuation"]
-    lr_list = [(4**i) * 1e-3 for i in range(5)]
+    method_list = ["bigstep"]
+    lr_list = [(4**i) * 1e-3 for i in range(6)]
     for method in method_list:
         for lr in lr_list:
-            config = Configuration(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=None, time_limit=100)
+            config = Configuration(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=100)
             main(config)
