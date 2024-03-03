@@ -211,7 +211,7 @@ def main(conf: Optional[Configuration] = None):
         pickle.dump(result_dict, f)
     
 if __name__ == "__main__":
-    method_list = ["bigstep"]
+    method_list = ["gd", "continuation", "bigstep"]
     lr_list = [(4**i) * 1e-3 for i in range(6)]
     for method in method_list:
         for lr in lr_list:
