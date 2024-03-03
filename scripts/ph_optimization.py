@@ -145,7 +145,7 @@ def main(conf: Optional[Configuration] = None):
             xmin, xmax = np.min(X_history[:, :, 0]), np.max(X_history[:, :, 0])
             ymin, ymax = np.min(X_history[:, :, 1]), np.max(X_history[:, :, 1])
             fig = plt.figure(); ax = fig.add_subplot(111)
-            sc = ax.scatter([], [], color='#377eb8') # 空の散布図
+            sc = ax.scatter([], [], color='#377eb8')
             ax.set_aspect("equal"); ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
             def pc_update(i):
                 sc.set_offsets(X_history[i, :, :])
