@@ -97,7 +97,7 @@ See the comments in the `Regularization` for more details on how to implement th
 
 [1] Marcio Gameiro, Yasuaki Hiraoka, and Ippei Obayashi. Continuation of point clouds via persistence diagrams. Physica D: Nonlinear Phenomena, 334:118–132, 2016.
 
-[2] Arnur Nigmetov and Dmitriy Morozov. Topological optimization with big steps. arXiv:2203.16748, 2022.
+[2] Arnur Nigmetov and Dmitriy Morozov. Topological optimization with big steps. Discrete & Computational Geometry, 1-35, 2024.
 
 [3] Julián Burella Pérez, Sydney Hauke, Umberto Lupo, Matteo Caorsi, Alberto Dassatti. Giotto-ph: A Python Library for High-Performance Computation of Persistent Homology of Vietoris–Rips Filtrations.arXiv:2107.05412, 2021.
 
