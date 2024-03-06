@@ -12,6 +12,9 @@ Our implementation has following nice features:
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
 If we need matrix decomposition, we use our fast implementation inspired by [4].
 
+We describe the usage of our implementation in this README.
+Please refer to `notebooks/ph_opt_example.ipynb` for the examples.
+
 ## Demo
 
 ![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/b30ad98f-721c-45a2-befd-e263b5621eb4)

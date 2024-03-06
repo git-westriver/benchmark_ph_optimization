@@ -16,7 +16,7 @@ from data_loader import *
 from lib.ph_optimization_library import *
 
 @dataclasses.dataclass
-class Configuration:
+class OptConfig:
     """
     Configuration for persistence homology optimization.
 
@@ -79,9 +79,9 @@ class Configuration:
                 print(f"{k}: {v}")
         sys.stdout.flush()
 
-def main(conf: Optional[Configuration] = None):
+def ph_opt_main(conf: Optional[OptConfig] = None):
     if conf is None:
-        conf = Configuration()
+        conf = OptConfig()
     conf.print()
     if len(sys.argv) >= 2:
         savedirpath = sys.argv[1]
@@ -215,5 +215,5 @@ if __name__ == "__main__":
     lr_list = [(4**i) * 1e-3 for i in range(6)]
     for method in method_list:
         for lr in lr_list:
-            config = Configuration(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=100)
-            main(config)
+            config = OptConfig(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=100)
+            ph_opt_main(config)
