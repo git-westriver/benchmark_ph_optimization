@@ -123,13 +123,23 @@ class RipsPH(RipsPersistentHomology):
                     return torch.empty([0, 2])
             raise NotImplementedError
     
-    def get_differentiable_diameter(self, dim, idx):
+    def get_differentiable_diameter(self, dim: int, idx: int) -> torch.Tensor:
         if type(self.dist_mat).__module__ != "torch":
             raise ValueError("Differentiable barcode is only available for torch.Tensor")
         v1, v2 = self.get_max_edge(dim, idx)
         return self.dist_mat[v1, v2]
     
-    def get_differentiable_barcode(self, dim):
+    def get_differentiable_barcode(self, dim: int) -> torch.Tensor:
+        """
+        Get differentiable barcode of dimension `dim`.
+        If compute_ph or compute_ph_right have not been called, PH will be computed with giotto-ph.
+
+        Parameters:
+            - dim: dimension of the barcode.
+
+        Returns:
+            - torch.Tensor of shape=(# of bars, 2).
+        """
         if type(self.dist_mat).__module__ != "torch":
             raise ValueError("Differentiable barcode is only available for torch.Tensor")
         b_time_list = []; d_time_list = []
@@ -160,7 +170,7 @@ class RipsPH(RipsPersistentHomology):
         else:
             return torch.empty([0, 2], dtype=torch.float32)
     
-    def get_bar_object_list(self, dim) -> list[Bar]:
+    def get_bar_object_list(self, dim: int) -> list[Bar]:
         """
         Get list of Bar objects. 
         Remark:

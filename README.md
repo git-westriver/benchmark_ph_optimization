@@ -24,7 +24,6 @@ Please refer to `notebooks/ph_opt_example.ipynb` for the examples.
 You can simply run the command scripts/ph_optimization.py to try it out.
 Then, given a point cloud data with a circle and one outlier, the three algorithms try to make the hole larger with multiple learning rates.
 The results will be saved in the directory `results/sample` in default.
-If you specify the directory name as the first argument when executing the python code like `python scripts/ph_optimization.py {directory_name}`, the results will be saved in that directory.
 
 You can also specify your favorite settings by changing the attributes in `Configuration` whose parameters are described in the following.
 For more details on how to use `Configuration`, please refer to the part below `if __name__ == "__main__":` in `scripts/ph_optimization.py`.
@@ -33,6 +32,7 @@ Regarding data, loss functions and regularizations, the subsequent sections will
 Parameters of `Configuration`:
 - COMMON SETTINGS
     - exp_name(str, default=""): Experiment name. This will be used as a directory name to save the results.
+    - save_dirname(str, default="results/sample"): Directory name to save the results.
     - data_func(Callable, default=circle_with_one_outlier): Data generating function. You can define your own function in `data_loader.py`.
     - num_trial(int, default=1): If you want to perform the optimization multiple times with different initial values and see the average results, set this parameter.
     - num_epoch(int, default=100): Number of epochs. If `None`, the optimization is performed until `time_limit`.

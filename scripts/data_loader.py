@@ -6,16 +6,17 @@ from scipy.spatial import Voronoi
 import matplotlib.pyplot as plt
 
 def get_data(func_name: Callable, num_pts: int) -> np.ndarray:
-    filename = f"data/{func_name.__name__}_num-pts={num_pts}"
-    if os.path.isfile(filename + ".npy"):
-        return np.load(filename + ".npy")
-    X = func_name(num_pts)
-    np.save(filename + ".npy", X)
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.scatter(X[0, :, 0], X[0, :, 1])
-    ax.set_aspect("equal")
-    fig.savefig(filename + ".png")
+    if os.path.isdir("data"):
+        filename = f"data/{func_name.__name__}_num-pts={num_pts}"
+        if os.path.isfile(filename + ".npy"):
+            return np.load(filename + ".npy")
+        X = func_name(num_pts)
+        np.save(filename + ".npy", X)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.scatter(X[0, :, 0], X[0, :, 1])
+        ax.set_aspect("equal")
+        fig.savefig(filename + ".png")
     return X
 
 def circle_with_one_outlier(num_pts: int) -> np.ndarray:
