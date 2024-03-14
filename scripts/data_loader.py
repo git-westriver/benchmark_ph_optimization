@@ -6,11 +6,11 @@ from scipy.spatial import Voronoi
 import matplotlib.pyplot as plt
 
 def get_data(func_name: Callable, num_pts: int) -> np.ndarray:
+    filename = f"data/{func_name.__name__}_num-pts={num_pts}"
+    if os.path.isfile(filename + ".npy"):
+        return np.load(filename + ".npy")
+    X = func_name(num_pts)
     if os.path.isdir("data"):
-        filename = f"data/{func_name.__name__}_num-pts={num_pts}"
-        if os.path.isfile(filename + ".npy"):
-            return np.load(filename + ".npy")
-        X = func_name(num_pts)
         np.save(filename + ".npy", X)
         fig = plt.figure()
         ax = fig.add_subplot(111)

@@ -85,6 +85,9 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
     if conf is None:
         conf = OptConfig()
     conf.print()
+    ### Create a directory if it does not exist ###
+    if not os.path.exists(conf.save_dirpath):
+        os.makedirs(conf.save_dirpath)
     ### Read data ###
     dataset = get_data(conf.data_func, 100)
     ### Optimization for `num_trial` different initial values ###

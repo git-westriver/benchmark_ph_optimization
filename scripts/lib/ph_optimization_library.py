@@ -47,6 +47,8 @@ class GradientDescent(PHOptimization):
     def update(self) -> None:
         self.optimizer.zero_grad()
         loss = self.get_loss()
+        if loss.grad_fn is None:
+            return
         loss.backward()
         self.optimizer.step()
         if self.scheduler is not None:
@@ -80,6 +82,8 @@ class BigStep(PHOptimization):
         self.optimizer.zero_grad()
         ### compute the gradient of the persistence based loss at the current point ###
         loss = self.loss_obj(self.X)
+        if loss.grad_fn is None:
+            return
         loss.backward()
         gen_grad_norm = torch.norm(self.X.grad)
         self.optimizer.zero_grad()
@@ -138,6 +142,8 @@ class BigStep(PHOptimization):
                 elif simp in low_target_value[dim]:
                     aux_loss += torch.relu(diam - low_target_value[dim][simp]) ** 2
         ### Rescale Auxilary Loss to make the gradient norm of the auxilary loss equal to that of the persistence based loss ###
+        if aux_loss.grad_fn is None:
+            return
         aux_loss.backward(retain_graph=True)
         aux_grad_norm = torch.norm(self.X.grad)
         self.optimizer.zero_grad()
