@@ -72,6 +72,49 @@ class PersistenceBasedLoss:
         """
         raise NotImplementedError
 
+class WassersteinLoss(PersistenceBasedLoss):
+    """
+    Loss to minimize the Wasserstein distance between the persistent diagram of the input and a desirable persistent diagram.
+
+    Parameters:
+        - dim_list(list[int]): list of dimensions of the persistent homology.
+        - desirable_pd(list[torch.Tensor]): the desirable persistent diagram. shape=(#bars, 2)
+        - order(int, default=2): the order of Wasserstein distance.
+    """
+    def __init__(self, dim_list: list[int], desirable_pd: list[torch.Tensor], order=2):
+        super().__init__(dim_list)
+        self.desirable_pd = desirable_pd
+        self.order = order
+
+    @get_rph
+    def __call__(self, X: torch.Tensor, rph=Optional[RipsPH]) -> torch.Tensor:
+        loss = 0
+        for dim_idx, dim in enumerate(self.dim_list):
+            barcode: torch.Tensor = rph.get_differentiable_barcode(dim)
+            loss += wasserstein_distance(barcode, self.desirable_pd[dim_idx], order=self.order, enable_autodiff=True, keep_essential_parts=False)
+        return loss
+    
+    @get_rph
+    def get_direction(self, X, rph=Optional[RipsPH]) -> list[tuple[int, list[Bar], torch.Tensor]]:
+        ret = []
+        for dim_idx, dim in enumerate(self.dim_list):
+            bars_to_move, direction = [], []
+            bar_list = rph.get_bar_object_list(dim)
+            barcode = torch.tensor([[bar.birth_time, bar.death_time] for bar in bar_list])
+            _, matching = wasserstein_distance(barcode, self.desirable_pd[dim_idx], order=self.order, matching=True, keep_essential_parts=False)
+            for i, j in matching:
+                if i == -1:
+                    continue
+                elif j == -1:
+                    bars_to_move.append(bar_list[i])
+                    diff = barcode[i, 1] - barcode[i, 0]
+                    direction.append(diff * torch.tensor([0.5, -0.5]))
+                else:
+                    bars_to_move.append(bar_list[i])
+                    direction.append(self.desirable_pd[dim_idx][j] - barcode[i])
+            ret.append((dim, bars_to_move, torch.stack(direction, dim=0)))
+        return ret
+
 class ExpandLoss(PersistenceBasedLoss):
     """
     Loss to expand the holes in the point cloud, i.e., make the points in the PD far from the diagonal.

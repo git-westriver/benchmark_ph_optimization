@@ -1,10 +1,10 @@
-# Benchmarks for optimization of pointclouds with persistent based loss
+# Library for optimization of pointclouds with persistence-based loss
 
 By Naoki Nishikawa ([GitHub](https://github.com/git-westriver), [Homepage](https://sites.google.com/view/n-nishikawa))
 and Yuichi Ike ([Homepage](https://sites.google.com/view/yuichi-ike))
 
-This repository presents the benchmarks for the optimization of point clouds with persistent based loss.
-We aim to compare the exisiting methods to optimize persistence based loss when we use Vietoris Rips filtration of point clouds.
+This repository presents a library for the optimization of point clouds with persistence-based loss.
+We aim to provide the implementation of the existing optimization methods and the interface to compare them.
 
 Our implementation has following nice features:
 - ***Multiple methods***: standard gradient descent, Conginuation [1], and Big Step [2].
@@ -12,18 +12,21 @@ Our implementation has following nice features:
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
 If we need matrix decomposition, we use our fast implementation inspired by [4].
 
-We describe the usage of our implementation in this README.
-Please refer to `notebooks/ph_opt_example.ipynb` for the examples.
-
 ## Demo
 
 ![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/b30ad98f-721c-45a2-befd-e263b5621eb4)
 
-## Usage of `scripts/ph_optimization.py`
+## How to start
 
 You can simply run the command scripts/ph_optimization.py to try it out.
 Then, given a point cloud data with a circle and one outlier, the three algorithms try to make the hole larger with multiple learning rates.
 The results will be saved in the directory `results/sample` in default.
+
+If you want to start using optimization methods right away, please refer to `notebooks/basic_usage.ipynb` for usage examples. 
+If you want to learn about the interface for comparing implemented optimization methods, please refer to `notebooks/interface_for_comparison.ipynb`. 
+For more details about the implementation, please see the following explanation.
+
+## Usage of `scripts/ph_optimization.py`
 
 You can also specify your favorite settings by changing the attributes in `OptConfig` whose parameters are described in the following.
 For more details on how to use `OptConfig`, please refer to the part below `if __name__ == "__main__":` in `scripts/ph_optimization.py`.
@@ -79,7 +82,7 @@ When implementing this class yourself, please pay attention to the following poi
 We describe the role of these methods in the following.
 See the comments in the `PersistenceBasedLoss` for more details on how to implement these methods.
     - `__call__`: the method to compute the loss value.
-    - `get_direction`: the method to get the desireble direction to move for each point in the persistent diagram. 
+    - `get_direction`: the method to get the desireble direction to move for each point in the persistence diagram. 
 
 ## Regularizations
 
