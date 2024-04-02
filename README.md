@@ -43,10 +43,6 @@ If you want to start using optimization methods right away, please refer to `not
 If you want to learn about the interface for comparing implemented optimization methods, please refer to `notebooks/interface_for_comparison.ipynb`. 
 For more details about the implementation, please see the following explanation.
 
-For the package requirements, please refer to `ph_opt_public.yaml`.
-We mainly require the following packages:
-
-
 ## Usage of `scripts/ph_optimization.py`
 
 You can also specify your favorite settings by changing the attributes in `OptConfig` whose parameters are described in the following.
