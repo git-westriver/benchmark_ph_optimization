@@ -14,7 +14,7 @@ If we need matrix decomposition, we use our fast implementation inspired by [4].
 
 ## Demo
 
-![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/b30ad98f-721c-45a2-befd-e263b5621eb4)
+![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/2fa63805-07c3-48ed-8261-98871f7f81bd)
 
 ## How to start
 
