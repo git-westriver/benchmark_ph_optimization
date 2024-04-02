@@ -18,13 +18,34 @@ If we need matrix decomposition, we use our fast implementation inspired by [4].
 
 ## How to start
 
-You can simply run the command scripts/ph_optimization.py to try it out.
+1. Install the required packages. We mainly require the following:
+    - python(-3.9.13)
+    - giotto-ph(-0.2.2)
+    - numpy(-1.24.3)
+    - scikit-learn(1.4.1.post1)
+    - scipy(-1.10.1)
+    - pybind11(-2.6.1)
+    - pytorch(-2.2.2)
+    - matplotlib(-3.8.0)
+    - gudhi(-3.9.0)
+    - pot(-0.9.3)
+    - ipykernel(-6.25.0)
+    - eagerpy(-0.29.0)
+    Please refer to `ph_opt_public.yaml` for the detailed package requirements.
+
+2. Run `cd scripts/lib; g++ -O3 -Wall -shared -std=c++17 -fPIC $(python3 -m pybind11 --includes) ph_cpp_library_pybind.cpp -o rips_cpp$(python3-config --extension-suffix); cd ../..` to compile the C++ library for fast computation of persistence homology.
+
+3. You can simply run the command `python scripts/ph_optimization.py` to try it out.
 Then, given a point cloud data with a circle and one outlier, the three algorithms try to make the hole larger with multiple learning rates.
 The results will be saved in the directory `results/sample` in default.
 
 If you want to start using optimization methods right away, please refer to `notebooks/basic_usage.ipynb` for usage examples. 
 If you want to learn about the interface for comparing implemented optimization methods, please refer to `notebooks/interface_for_comparison.ipynb`. 
 For more details about the implementation, please see the following explanation.
+
+For the package requirements, please refer to `ph_opt_public.yaml`.
+We mainly require the following packages:
+
 
 ## Usage of `scripts/ph_optimization.py`
 
