@@ -31,6 +31,7 @@ If we need matrix decomposition, we use our fast implementation inspired by [4].
     - pot(-0.9.3)
     - ipykernel(-6.25.0)
     - eagerpy(-0.29.0)
+    
     Please refer to `ph_opt_public.yaml` for the detailed package requirements.
 
 2. Run `cd scripts/lib; g++ -O3 -Wall -shared -std=c++17 -fPIC $(python3 -m pybind11 --includes) ph_cpp_library_pybind.cpp -o rips_cpp$(python3-config --extension-suffix); cd ../..` to compile the C++ library for fast computation of persistence homology.
