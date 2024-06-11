@@ -35,7 +35,7 @@ class OptConfig:
             - regularization_obj(Optional[Regularization], default=RectangleRegularization(-2., -2., 2., 2., 1., 2)): 
                 Regularization. You can define your own function in `regularization.py`.
         - METHOD
-            - method(str, default="gd"): Optimization method. "gd", "bigstep", or "continuation".
+            - method(str, default="gd"): Optimization method. "gd", "bigstep", "continuation" and "diffeo" are available.
             - lr(float, default=1e-1): Learning rate.
             - reg_proj(bool, default=False): 
                 If `True`, the algorithm projects the variables to the region where the regularization term is zero at the end of each epoch.
@@ -57,7 +57,7 @@ class OptConfig:
     loss_obj: PersistenceBasedLoss = ExpandLoss([1], 1, topk=1)
     regularization_obj: Optional[Regularization] = RectangleRegularization(-2., -2., 2., 2., 1., 2)
     ### METHOD ###
-    method: str = "gd" # "gd", "bigstep", "continuation"
+    method: str = "gd" # "gd", "bigstep", "continuation", "diffeo"
     lr: float = 1e-1
     reg_proj: bool = False
     optimizer_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
@@ -103,6 +103,9 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         elif conf.method == "bigstep":
             poh = BigStep(X, conf.loss_obj, conf.regularization_obj, reg_proj=conf.reg_proj, 
                           lr=conf.lr, optimizer_conf=conf.optimizer_conf, scheduler_conf=conf.scheduler_conf)
+        elif conf.method == "diffeo":
+            poh = Diffeo(X, conf.loss_obj, conf.regularization_obj, reg_proj=conf.reg_proj, 
+                        lr=conf.lr, optimizer_conf=conf.optimizer_conf, scheduler_conf=conf.scheduler_conf)
         elif conf.method == "continuation":
             poh = Continuation(X, conf.loss_obj, conf.regularization_obj, 
                                lr=conf.lr, in_iter_num=conf.num_in_iter)
@@ -208,7 +211,7 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         pickle.dump(result_dict, f)
     
 if __name__ == "__main__":
-    method_list = ["gd", "continuation", "bigstep"]
+    method_list = ["gd", "continuation", "bigstep", "diffeo"]
     lr_list = [(4**i) * 1e-3 for i in range(6)]
     for method in method_list:
         for lr in lr_list:

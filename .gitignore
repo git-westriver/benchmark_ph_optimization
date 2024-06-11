@@ -10,3 +10,5 @@ data/*.png
 bash
 
 notebooks/private
+
+ph_opt_public.yaml

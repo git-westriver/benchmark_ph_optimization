@@ -160,6 +160,62 @@ class BigStep(PHOptimization):
         if self.reg_proj:
             self.X = self.reg_obj.projection(self.X)
 
+class Diffeo(PHOptimization):
+    def __init__(self, X: torch.Tensor, loss_obj: PersistenceBasedLoss, reg_obj: Optional[Regularization]=None, reg_proj: bool=False, 
+                 lr: float=1e-1, sigma: float=0.1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
+        super().__init__(X, loss_obj, reg_obj, reg_proj)
+        ### optimizer ###
+        if optimizer_conf is None:
+            optimizer_conf = {"name": "SGD"}
+        optimizer_name = optimizer_conf.get("name", "SGD")
+        if optimizer_name == "SGD":
+            self.optimizer = torch.optim.SGD([self.X], lr=lr)
+        elif optimizer_name == "Adam":
+            self.optimizer = torch.optim.Adam([self.X], lr=lr)
+        ### scheduler ###
+        if scheduler_conf is None:
+            scheduler_conf = {"name": "const"}
+        scheduler_name = scheduler_conf.get("name", "const")
+        if scheduler_name == "const":
+            self.scheduler = None
+        elif scheduler_name == "TransformerLR":
+            self.scheduler = TransformerLR(self.optimizer, warmup_epochs=scheduler_conf.get("warmup_epochs", 100))
+        ### unique parameter ###
+        self.sigma = sigma # the standard deviation of the Gaussian kernel
+
+    def update(self) -> None:
+        self.optimizer.zero_grad()
+        ### compute the gradient of the persistence based loss at the current point ###
+        loss = self.loss_obj(self.X)
+        if loss.grad_fn is None:
+            return
+        loss.backward()
+        gen_grad = self.X.grad.clone()
+        gen_grad_norm = torch.norm(self.X.grad)
+        ### compute the new gradient using diffeomorphic interpolation ###
+        nonzero_grad_idx = [idx for idx in range(self.num_pts) if gen_grad[idx, :].norm() > 0]
+        nonzero_grad_X = self.X[nonzero_grad_idx, :]
+        a_vec = torch.cat([gen_grad[i, :] for i in nonzero_grad_idx], dim=0) # corresponds to `a` in the paper
+        _K_mat = torch.exp(- torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)) # the Gaussian kernel matrix
+        K_mat = torch.kron(_K_mat, torch.eye(self.X.shape[1])) # corresponds to `K` in the paper
+        _alpha: torch.Tensor = torch.linalg.solve(K_mat, a_vec)
+        alpha = _alpha.view(len(nonzero_grad_idx), self.X.shape[1]) # corresponds to `alpha` in the paper
+        rho_mat = torch.exp(- torch.cdist(self.X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)) # shape = (num_pts, num_nonzero_grad_pts)
+        new_grad = torch.einsum("ij,jk->ik", rho_mat, alpha).detach().clone() # shape = (num_pts, pts_dim)
+        ### obtain auxiliary loss based on the new gradient ###
+        self.optimizer.zero_grad()
+        target_X = self.X.detach() -  new_grad
+        aux_loss = (torch.norm(target_X - self.X) ** 2) * gen_grad_norm / (2 * torch.norm(new_grad))
+        ### add the regularization, compute the gradient, and update the parameters ###
+        aux_loss = aux_loss + self.reg_obj(self.X)
+        aux_loss.backward()
+        self.optimizer.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
+        ### project to the region of regularization = 0 ###
+        if self.reg_proj:
+            self.X = self.reg_obj.projection(self.X)
+
 class Continuation(PHOptimization):
     def __init__(self, X: torch.Tensor, loss_obj: PersistenceBasedLoss, reg_obj: Optional[Regularization]=None, 
                  lr: float = 1e-1, in_iter_num: int=1):

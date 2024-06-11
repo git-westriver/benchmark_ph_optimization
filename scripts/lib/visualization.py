@@ -32,6 +32,12 @@ def get_animation(
     for i in range(len(loss_history)):
         for j in range(len(loss_history[i])):
             num_epoch = min(num_epoch, len(loss_history[i][j]))
+    # convert None to default values
+    if color_list is None:
+        default_colors = ["red", "green", "blue", "orange"]
+        color_list = [default_colors[i%len(default_colors)] for i in range(num_setting)]
+    if figsize is None:
+        figsize = (5 * len(title_list), 15)
     # loss_mean, loss_std
     loss_mean = []; loss_std = []
     for i in range(num_setting):
@@ -67,12 +73,6 @@ def get_animation(
         else:
             pd_colormap[dim] = pd_colormap[dim] + (1,)
     pd_colormap = tuple(pd_colormap)
-    # convert None to default values
-    if color_list is None:
-        default_colors = ["red", "green", "blue"]
-        color_list = [default_colors[i] for i in range(num_setting)]
-    if figsize is None:
-        figsize = (5 * len(title_list), 15)
     # update function for animation
     def update(idx):
         for i in range(num_setting):
@@ -85,8 +85,11 @@ def get_animation(
             ax_X.scatter(X[:, 0], X[:, 1], c="black")
             ax_X.set_aspect("equal")
             # draw the PD
-            plot_persistence_diagram(pd, axes=ax_pd, colormap=pd_colormap)
+            plot_persistence_diagram(pd, axes=ax_pd, colormap=pd_colormap, legend=False)
             ax_pd.set_title(""); ax_pd.set_xlabel(""); ax_pd.set_ylabel("")
+            for dim in dim_list:
+                ax_pd.scatter([], [], color=plt.cm.Set1.colors[dim], label=str(dim))
+            ax_pd.legend(loc="lower right")
             # draw the loss curve
             ax_loss.set_xlim(-1, num_epoch)
             ax_loss.set_ylim(min_loss, max_loss)

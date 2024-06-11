@@ -9,8 +9,8 @@ We aim to provide the implementation of the existing optimization methods and th
 Our implementation has following nice features:
 - ***Multiple methods***: standard gradient descent, Conginuation [1], and Big Step [2].
 - ***High flexibility***: you can specify any point clouds, persistence based losses or regularizations, **without changing the implementation of the algorithms**.
-- ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [3]. 
-If we need matrix decomposition, we use our fast implementation inspired by [4].
+- ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [4]. 
+If we need matrix decomposition, we use our fast implementation inspired by [5].
 
 ## Demo
 
@@ -18,7 +18,7 @@ If we need matrix decomposition, we use our fast implementation inspired by [4].
 
 ## How to start
 
-1. Install the required packages. We mainly require the following:
+1. Install the required packages:  <!-- We mainly require the following:-->
     - python(-3.9.13)
     - giotto-ph(-0.2.2)
     - numpy(-1.24.3)
@@ -32,7 +32,7 @@ If we need matrix decomposition, we use our fast implementation inspired by [4].
     - ipykernel(-6.25.0)
     - eagerpy(-0.29.0)
     
-    Please refer to `ph_opt_public.yaml` for the detailed package requirements.
+    <!-- Please refer to `ph_opt_public.yaml` for the detailed package requirements. -->
 
 2. Run `cd scripts/lib; g++ -O3 -Wall -shared -std=c++17 -fPIC $(python3 -m pybind11 --includes) ph_cpp_library_pybind.cpp -o rips_cpp$(python3-config --extension-suffix); cd ../..` to compile the C++ library for fast computation of persistence homology.
 
@@ -65,7 +65,7 @@ Parameters of `OptConfig`:
     - regularization_obj(Optional[Regularization], default=RectangleRegularization(-2., -2., 2., 2., 1., 2)): 
         Regularization. You can define your own function in `regularization.py`.
 - METHOD
-    - method(str, default="gd"): Optimization method. "gd", "bigstep", or "continuation".
+    - method(str, default="gd"): Optimization method. "gd", "bigstep", "continuation" and "diffeo" are available.
     - lr(float, default=1e-1): Learning rate.
     - reg_proj(bool, default=False): 
         If `True`, the algorithm projects the variables to the region where the regularization term is zero at the end of each epoch.
@@ -115,7 +115,7 @@ When implementing this class yourself, please pay attention to the following poi
 We describe the role of these methods in the following.
 See the comments in the `Regularization` for more details on how to implement these methods.
     - `__call__`: the method to compute the value of regularization term.
-    - `projection`: the method to project the variables to the region where the regularization term is zero.
+    - `projection`: the method to project the variables to the region where the regularization term is zero. 
 
 ## References
 
@@ -123,6 +123,14 @@ See the comments in the `Regularization` for more details on how to implement th
 
 [2] Arnur Nigmetov and Dmitriy Morozov. Topological optimization with big steps. Discrete & Computational Geometry, 1-35, 2024.
 
-[3] Julián Burella Pérez, Sydney Hauke, Umberto Lupo, Matteo Caorsi, Alberto Dassatti. Giotto-ph: A Python Library for High-Performance Computation of Persistent Homology of Vietoris–Rips Filtrations.arXiv:2107.05412, 2021.
+[3] Mathieu Carrière, Marc Theveneau, Théo Lacombe. Diffeomorphic interpolation for efficient persistence-based topological optimization. arXiv:2405.18820, 2024.
 
-[4] Ulrich Bauer. Ripser: efficient computation of Vietoris-Rips persistence barcodes. Journal of Applied and Computational Topology, 5(3):391-423, 2021.
+[4] Julián Burella Pérez, Sydney Hauke, Umberto Lupo, Matteo Caorsi, Alberto Dassatti. Giotto-ph: A Python Library for High-Performance Computation of Persistent Homology of Vietoris–Rips Filtrations.arXiv:2107.05412, 2021.
+
+[5] Ulrich Bauer. Ripser: efficient computation of Vietoris-Rips persistence barcodes. Journal of Applied and Computational Topology, 5(3):391-423, 2021.
+
+<!-- 
+## Remaining Tasks
+- [ ] Implement Gradient Sampling ...?
+- [ ] Improve continuation: reimplement the update as a gradient step of auxiliary loss so that the regularization term is treated properly. 
+-->
