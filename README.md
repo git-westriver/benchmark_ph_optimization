@@ -7,7 +7,7 @@ This repository presents a library for the optimization of point clouds with per
 We aim to provide the implementation of the existing optimization methods and the interface to compare them.
 
 Our implementation has following nice features:
-- ***Multiple methods***: standard gradient descent, Conginuation [1], and Big Step [2].
+- ***Multiple methods***: standard gradient descent, Conginuation [1], Big Step [2] and Diffeo [3].
 - ***High flexibility***: you can specify any point clouds, persistence based losses or regularizations, **without changing the implementation of the algorithms**.
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [4]. 
 If we need matrix decomposition, we use our fast implementation inspired by [5].
