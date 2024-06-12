@@ -88,7 +88,7 @@ class WassersteinLoss(PersistenceBasedLoss):
 
     @get_rph
     def __call__(self, X: torch.Tensor, rph=Optional[RipsPH]) -> torch.Tensor:
-        loss = 0
+        loss = torch.tensor(0.)
         for dim_idx, dim in enumerate(self.dim_list):
             barcode: torch.Tensor = rph.get_differentiable_barcode(dim)
             loss += wasserstein_distance(barcode, self.desirable_pd[dim_idx], order=self.order, enable_autodiff=True, keep_essential_parts=False)
@@ -134,13 +134,14 @@ class ExpandLoss(PersistenceBasedLoss):
 
     @get_rph
     def __call__(self, X: torch.Tensor, rph=Optional[RipsPH]) -> torch.Tensor:
+        loss = torch.tensor(0.)
         for dim in self.dim_list:
             barcode: torch.Tensor = rph.get_differentiable_barcode(dim)
             bar_list = [barcode[i] for i in range(barcode.size(0)) 
                         if self.eps is None or barcode[i, 1] - barcode[i, 0] > self.eps]
             if self.topk is not None:
                 bar_list = sorted(bar_list, key=lambda x: x[1] - x[0], reverse=True)[:self.topk]
-            loss = - sum([(bar[1] - bar[0]) ** self.order for bar in bar_list])
+            loss -= sum([(bar[1] - bar[0]) ** self.order for bar in bar_list])
         return loss
 
     @get_rph

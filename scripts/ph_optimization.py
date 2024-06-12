@@ -86,8 +86,9 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         conf = OptConfig()
     conf.print()
     ### Create a directory if it does not exist ###
-    if not os.path.exists(conf.save_dirpath):
-        os.makedirs(conf.save_dirpath)
+    savedirname = f"{conf.save_dirpath}/{conf.exp_name}" if conf.exp_name != "" else conf.save_dirpath
+    if not os.path.exists(savedirname):
+        os.makedirs(savedirname)
     ### Read data ###
     dataset = get_data(conf.data_func, 100)
     ### Optimization for `num_trial` different initial values ###
@@ -139,7 +140,7 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         time_history_list.append(time_history)
         ## For the first trial, save X_history as ndarray and gif ##
         if trial == 0:
-            with open(f"{conf.save_dirpath}/X_history.pkl", "wb") as f:
+            with open(f"{savedirname}/X_history.pkl", "wb") as f:
                 pickle.dump(X_history, f)
             X_history = torch.stack(X_history, axis=0).numpy()
             xmin, xmax = np.min(X_history[:, :, 0]), np.max(X_history[:, :, 0])
@@ -151,7 +152,7 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
                 sc.set_offsets(X_history[i, :, :])
                 return sc, 
             anim = animation.FuncAnimation(fig, pc_update, frames=X_history.shape[0], interval=100)
-            anim.save(f"{conf.save_dirpath}/X_history.gif", writer='pillow')
+            anim.save(f"{savedirname}/X_history.gif", writer='pillow')
         ## Finish the trial ##
         print(f"Trial {trial} finished. ellapsed time: {time.time() - trial_start}", flush=True)
 
@@ -163,7 +164,7 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         for trial in range(conf.num_trial):
             ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
         ax.set_xlabel("epoch"); ax.set_ylabel("loss")
-        fig.savefig(f"{conf.save_dirpath}/epoch-loss.png")
+        fig.savefig(f"{savedirname}/epoch-loss.png")
     else: 
         # Then, mean and std of the loss over trials
         loss_history_mat = np.stack(loss_history_list, axis=0) # (num_trial, num_epoch+1)
@@ -173,7 +174,7 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         ax.plot(loss_mean, color="blue")
         ax.fill_between(np.arange(loss_mean.shape[0]), loss_mean - loss_std, loss_mean + loss_std, color="blue", alpha=0.3)
         ax.set_xlabel("epoch"); ax.set_ylabel("loss")
-        fig.savefig(f"{conf.save_dirpath}/epoch-loss.png")
+        fig.savefig(f"{savedirname}/epoch-loss.png")
     ## visualization of the transition of the loss over time ##
     if conf.time_limit is None: 
         # Then, scatter between time and loss
@@ -181,7 +182,7 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         for trial in range(conf.num_trial):
             ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
         ax.set_xlabel("time"); ax.set_ylabel("loss")
-        fig.savefig(f"{conf.save_dirpath}/time-loss.png")
+        fig.savefig(f"{savedirname}/time-loss.png")
     else: 
         # Then, mean and std of the loss over trials
         time_linspace = np.linspace(0, conf.time_limit, 101)
@@ -201,13 +202,13 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         ax.plot(time_linspace, time_loss_mean, color="blue")
         ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
         ax.set_xlabel("time"); ax.set_ylabel("loss")
-        fig.savefig(f"{conf.save_dirpath}/time-loss.png")
+        fig.savefig(f"{savedirname}/time-loss.png")
     ## save loss_history_list and time_history_list ##
     result_dict = {
         "loss_history": loss_history_list,
         "time_history": time_history_list,
     }
-    with open(f"{conf.save_dirpath}/result_dict.pkl", "wb") as f:
+    with open(f"{savedirname}/result_dict.pkl", "wb") as f:
         pickle.dump(result_dict, f)
     
 if __name__ == "__main__":

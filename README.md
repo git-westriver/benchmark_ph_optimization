@@ -133,4 +133,5 @@ See the comments in the `Regularization` for more details on how to implement th
 ## Remaining Tasks
 - [ ] Implement Gradient Sampling ...?
 - [ ] Improve continuation: reimplement the update as a gradient step of auxiliary loss so that the regularization term is treated properly. 
+- [ ] Add Diffeo to notebooks/interface_for_comparison.ipynb
 -->
