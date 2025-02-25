@@ -6,6 +6,98 @@ from gudhi.rips_complex import RipsComplex
 from gudhi import plot_persistence_diagram
 from typing import Optional
 
+def is_persistence_diagram(obj):
+    """
+    Check if the input is a persistence diagram or not.
+
+    Args:
+        obj (Any): Input object to check.
+
+    Returns:
+        bool: True if the input is a persistence diagram, False otherwise.
+    """
+    if not isinstance(obj, list):
+        return False
+    for item in obj:
+        if not (isinstance(item, tuple) and len(item) == 2):
+            return False
+        if not isinstance(item[0], int):
+            return False
+        if not (isinstance(item[1], tuple) and len(item[1]) == 2):
+            return False
+        if not all(isinstance(coord, float) for coord in item[1]):
+            return False
+    return True
+
+def get_max_death_of_pds(pds):
+    """
+    Get the maximum death value of the persistence diagrams.
+
+    Args:
+        pds (Array[list[tuple[int, tuple[float, float]]]]): Array of persistence diagrams. Each PD is a list of tuples (dimension, (birth, death)).\
+            The array can be nested, i.e., `pds` can be a persistence diagrams, a list of persistence diagrams, or a list of lists of persistence diagrams (and so on).
+
+    Returns:
+        float: Maximum death value.
+    """
+    if is_persistence_diagram(pds):
+        return max([bar[1][1] for bar in pds])
+    else:
+        return max([get_max_death_of_pds(obj) for obj in pds])
+
+def plot_pd_with_specified_lim(pds, axes, high=None, 
+                               title=None, x_label=None, y_label=None,
+                               legend=True):
+    """
+    Plot the persistence diagram with specified limits.
+
+    Args:
+        pds (list[list[tuple[int, tuple[float, float]]]]): List of persistence diagrams. Each PD is a list of tuples (dimension, (birth, death)).
+        axes (list[matplotlib.axes.Axes]): List of axes to plot the persistence diagram.
+        high (Optional[float]): Upper limit of the x-axis and y-axis. If None, the maximum death value is used.
+        title (Optional[str]): Title of the plot. If None, the default of GUDHI is used.
+        x_label (Optional[str]): Label of the x-axis. If None, the default of GUDHI is used.
+        y_label (Optional[str]): Label of the y-axis. If None, the default of GUDHI is used.
+        legend (bool, default=True): Whether to show the legend or not.
+    """
+    # get maximum death value if high is None
+    if high is None:
+        high = get_max_death_of_pds(pds)
+
+    # get maximum dimension
+    max_dim = max([max([bar[0] for bar in pd]) for pd in pds])
+
+    # get colormap
+    pd_colormap = list(plt.cm.Set1.colors)
+    for dim in range(len(pd_colormap)):
+        if dim == max_dim+1:
+            pd_colormap[max_dim+1] = (1, 1, 1, 0) # transparent
+        else:
+            pd_colormap[dim] = pd_colormap[dim] + (1,) # add alpha value (non-transparent)
+    pd_colormap = tuple(pd_colormap)
+
+    # plot persistence diagrams
+    for pd, ax in zip(pds, axes):
+        # add null point to the PD
+        pd.append([(max_dim+1, (0, high*1.01))])
+
+        # plot the PD
+        plot_persistence_diagram(pd, axes=ax, colormap=pd_colormap, legend=False)
+
+        # set title and labels
+        if title is not None:
+            ax.set_title(title)
+        if x_label is not None:
+            ax.set_xlabel(x_label)
+        if y_label is not None:
+            ax.set_ylabel(y_label)
+
+        # add legend
+        if legend:
+            for dim in range(max_dim+1):
+                ax.scatter([], [], color=plt.cm.Set1.colors[dim], label=str(dim))
+            ax.legend(loc="lower right")
+
 def get_animation(
         X_history: list[list[torch.Tensor]], 
         loss_history: list[list[list[float]]],
@@ -32,29 +124,34 @@ def get_animation(
     for i in range(len(loss_history)):
         for j in range(len(loss_history[i])):
             num_epoch = min(num_epoch, len(loss_history[i][j]))
+
     # convert None to default values
     if color_list is None:
         default_colors = ["red", "green", "blue", "orange"]
         color_list = [default_colors[i%len(default_colors)] for i in range(num_setting)]
     if figsize is None:
         figsize = (5 * len(title_list), 15)
+
     # loss_mean, loss_std
     loss_mean = []; loss_std = []
     for i in range(num_setting):
         loss_mean.append(np.mean([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
         loss_std.append(np.std([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
+
     # xmin, xmax, ymin, ymax
     xmin = min([torch.min(X_history[i][j][:, 0]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     xmax = max([torch.max(X_history[i][j][:, 0]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     ymin = min([torch.min(X_history[i][j][:, 1]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     ymax = max([torch.max(X_history[i][j][:, 1]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
+    
     # min_loss, max_loss
     min_loss = min([np.min(loss_mean[i]) for i in range(num_setting)])
     max_loss = max([loss_mean[i][0] for i in range(num_setting)])
     loss_range = max_loss - min_loss
     min_loss, max_loss = min_loss - 0.005 * loss_range, max_loss + 0.005 * loss_range
     fig, axes = plt.subplots(3, num_setting, figsize=(5*num_setting, 15))
-    # compute PDs beforehands
+
+    # compute PDs beforehand
     PD_history = [[] for i in range(num_setting)]
     max_dim = max(dim_list)
     max_death = 0
@@ -65,31 +162,34 @@ def get_animation(
             barcode = simplex_tree.persistence()
             barcode = [(dim, (birth, death)) for dim, (birth, death) in barcode if dim in dim_list]
             PD_history[i].append(barcode)
-            max_death = max(max_death, max([bar[1][1] for bar in barcode]))
-    pd_colormap = list(plt.cm.Set1.colors)
-    for dim in range(len(pd_colormap)):
-        if dim == max_dim+1:
-            pd_colormap[max_dim+1] = (1, 1, 1, 0)
-        else:
-            pd_colormap[dim] = pd_colormap[dim] + (1,)
-    pd_colormap = tuple(pd_colormap)
+
+    # get maximum death value
+    max_death = get_max_death_of_pds(PD_history)
+
     # update function for animation
     def update(idx):
         for i in range(num_setting):
-            X = X_history[i][idx].detach().numpy(); pd = PD_history[i][idx] + [(max_dim+1, (0, max_death*1.01))]; loss = loss_mean[i][idx]
-            ax_X = axes[0, i]; ax_pd = axes[1, i]; ax_loss = axes[2, i]
+            # get data at idx-th epoch
+            X = X_history[i][idx].detach().numpy()
+            pd = PD_history[i][idx]
+            loss = loss_mean[i][idx]
+
+            # get axes
+            ax_X = axes[0, i]
+            ax_pd = axes[1, i]
+            ax_loss = axes[2, i]
+
             # plot the optimization variable
             ax_X.clear(); ax_pd.clear(); ax_loss.clear()
             ax_X.set_title(title_list[i])
-            ax_X.set_xlim(xmin, xmax); ax_X.set_ylim(ymin, ymax)
+            ax_X.set_xlim(xmin, xmax)
+            ax_X.set_ylim(ymin, ymax)
             ax_X.scatter(X[:, 0], X[:, 1], c="black")
             ax_X.set_aspect("equal")
+
             # draw the PD
-            plot_persistence_diagram(pd, axes=ax_pd, colormap=pd_colormap, legend=False)
-            ax_pd.set_title(""); ax_pd.set_xlabel(""); ax_pd.set_ylabel("")
-            for dim in dim_list:
-                ax_pd.scatter([], [], color=plt.cm.Set1.colors[dim], label=str(dim))
-            ax_pd.legend(loc="lower right")
+            plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, title="", x_label="", y_label="")
+
             # draw the loss curve
             ax_loss.set_xlim(-1, num_epoch)
             ax_loss.set_ylim(min_loss, max_loss)
@@ -97,6 +197,7 @@ def get_animation(
             ax_loss.fill_between(range(idx+1), loss_mean[i][:idx+1]-loss_std[i][:idx+1], loss_mean[i][:idx+1]+loss_std[i][:idx+1], color=color_list[i], alpha=0.3)
             ax_loss.scatter(idx, loss, c=color_list[i])
             ax_loss.plot([idx, idx], [min_loss, max_loss], color=color_list[i], linestyle="--")
+
     # create animation
     ani = animation.FuncAnimation(fig, update, frames=num_epoch, interval=100)
 
