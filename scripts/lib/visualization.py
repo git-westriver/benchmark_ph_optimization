@@ -5,12 +5,12 @@ import matplotlib.animation as animation
 from gudhi.rips_complex import RipsComplex
 from gudhi import plot_persistence_diagram
 from typing import Optional
-from collections.abc import Sequence
+from collections.abc import Sized
 
 def is_persistence_diagram(obj):
     """
-    Check if the input is a persistence diagram (Sequence[Sequence[int, Sequence[float, float]]]) or not.
-    Sequence is an iterable type, such as list, tuple, etc.
+    Check if the input is a persistence diagram (Sized[Sized[int, Sized[float, float]]]) or not.
+    Sized is an iterable type with method __len__, such as list, tuple, etc.
 
     Args:
         obj (Any): Input object to check.
@@ -18,16 +18,16 @@ def is_persistence_diagram(obj):
     Returns:
         bool: True if the input is a persistence diagram, False otherwise.
     """
-    if not isinstance(obj, Sequence):
+    if not isinstance(obj, Sized):
         return False
     for item in obj:
-        if not (isinstance(item, Sequence) and len(item) == 2):
+        if not (isinstance(item, Sized) and len(item) == 2):
             return False
-        if not isinstance(item[0], Sequence):
+        if not isinstance(item[0], Sized):
             return False
-        if not (isinstance(item[1], Sequence) and len(item[1]) == 2):
+        if not (isinstance(item[1], Sized) and len(item[1]) == 2):
             return False
-        if not all(isinstance(coord, Sequence) for coord in item[1]):
+        if not all(isinstance(coord, Sized) for coord in item[1]):
             return False
     return True
 
