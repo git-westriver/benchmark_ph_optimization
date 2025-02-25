@@ -46,7 +46,7 @@ def get_max_death_of_pds(pds):
         return max([get_max_death_of_pds(obj) for obj in pds])
 
 def plot_pd_with_specified_lim(pds, axes, high=None, 
-                               title=None, x_label=None, y_label=None,
+                               titles=None, x_labels=None, y_labels=None,
                                legend=True):
     """
     Plot the persistence diagram with specified limits.
@@ -55,9 +55,9 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
         pds (list[list[tuple[int, tuple[float, float]]]]): List of persistence diagrams. Each PD is a list of tuples (dimension, (birth, death)).
         axes (list[matplotlib.axes.Axes]): List of axes to plot the persistence diagram.
         high (Optional[float]): Upper limit of the x-axis and y-axis. If None, the maximum death value is used.
-        title (Optional[str]): Title of the plot. If None, the default of GUDHI is used.
-        x_label (Optional[str]): Label of the x-axis. If None, the default of GUDHI is used.
-        y_label (Optional[str]): Label of the y-axis. If None, the default of GUDHI is used.
+        titles (Optional[list[str]]): Title of the plot. If None, the default of GUDHI is used.
+        x_labels (Optional[list[str]]): Label of the x-axis. If None, the default of GUDHI is used.
+        y_labels (Optional[list[str]]): Label of the y-axis. If None, the default of GUDHI is used.
         legend (bool, default=True): Whether to show the legend or not.
     """
     # get maximum death value if high is None
@@ -77,7 +77,7 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
     pd_colormap = tuple(pd_colormap)
 
     # plot persistence diagrams
-    for pd, ax in zip(pds, axes):
+    for i, (pd, ax) in enumerate(zip(pds, axes)):
         # add null point to the PD
         pd.append([(max_dim+1, (0, high*1.01))])
 
@@ -85,13 +85,13 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
         plot_persistence_diagram(pd, axes=ax, colormap=pd_colormap, legend=False)
 
         # set title and labels
-        if title is not None:
-            ax.set_title(title)
-        if x_label is not None:
-            ax.set_xlabel(x_label)
-        if y_label is not None:
-            ax.set_ylabel(y_label)
-
+        if titles is not None:
+            ax.set_title(titles[i])
+        if x_labels is not None:
+            ax.set_xlabels(x_labels[i])
+        if y_labels is not None:
+            ax.set_ylabels(y_labels[i])
+            
         # add legend
         if legend:
             for dim in range(max_dim+1):
@@ -143,7 +143,7 @@ def get_animation(
     xmax = max([torch.max(X_history[i][j][:, 0]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     ymin = min([torch.min(X_history[i][j][:, 1]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     ymax = max([torch.max(X_history[i][j][:, 1]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
-    
+
     # min_loss, max_loss
     min_loss = min([np.min(loss_mean[i]) for i in range(num_setting)])
     max_loss = max([loss_mean[i][0] for i in range(num_setting)])
@@ -188,7 +188,8 @@ def get_animation(
             ax_X.set_aspect("equal")
 
             # draw the PD
-            plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, title="", x_label="", y_label="")
+            plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, 
+                                       titles=[""], x_labels=[""], y_labels=[""])
 
             # draw the loss curve
             ax_loss.set_xlim(-1, num_epoch)
