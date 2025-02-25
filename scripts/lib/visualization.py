@@ -5,10 +5,12 @@ import matplotlib.animation as animation
 from gudhi.rips_complex import RipsComplex
 from gudhi import plot_persistence_diagram
 from typing import Optional
+from collections.abc import Sequence
 
 def is_persistence_diagram(obj):
     """
-    Check if the input is a persistence diagram or not.
+    Check if the input is a persistence diagram (Sequence[Sequence[int, Sequence[float, float]]]) or not.
+    Sequence is an iterable type, such as list, tuple, etc.
 
     Args:
         obj (Any): Input object to check.
@@ -16,16 +18,16 @@ def is_persistence_diagram(obj):
     Returns:
         bool: True if the input is a persistence diagram, False otherwise.
     """
-    if not isinstance(obj, list):
+    if not isinstance(obj, Sequence):
         return False
     for item in obj:
-        if not (isinstance(item, tuple) and len(item) == 2):
+        if not (isinstance(item, Sequence) and len(item) == 2):
             return False
-        if not isinstance(item[0], int):
+        if not isinstance(item[0], Sequence):
             return False
-        if not (isinstance(item[1], tuple) and len(item[1]) == 2):
+        if not (isinstance(item[1], Sequence) and len(item[1]) == 2):
             return False
-        if not all(isinstance(coord, float) for coord in item[1]):
+        if not all(isinstance(coord, Sequence) for coord in item[1]):
             return False
     return True
 
@@ -91,7 +93,7 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
             ax.set_xlabels(x_labels[i])
         if y_labels is not None:
             ax.set_ylabels(y_labels[i])
-            
+
         # add legend
         if legend:
             for dim in range(max_dim+1):
