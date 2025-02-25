@@ -12,9 +12,13 @@ Our implementation has following nice features:
 - ***Fast computation***: basically, persistence homology will be computed by `giotto-ph` [4]. 
 If we need matrix decomposition, we use our fast implementation inspired by [5].
 
-## Demo
-
 ![animation](https://github.com/git-westriver/benchmark_ph_optimization/assets/64912615/3544b12f-b9f9-4d85-90c4-eae94d77e481)
+
+## Version table
+
+| Version | Date | Description |
+|:---:|:---:|:---|
+| 0.1.0 |  | Initial release. |
 
 ## How to start
 
