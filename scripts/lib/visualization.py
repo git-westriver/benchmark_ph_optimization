@@ -1,3 +1,4 @@
+import math
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -44,7 +45,7 @@ def get_max_death_of_pds(pds):
         float: Maximum death value.
     """
     if is_persistence_diagram(pds):
-        return max([bar[1][1] for bar in pds])
+        return max([death for dim, (birth, death) in pds if not math.isinf(death)])
     elif not isinstance(pds, Iterable):
         raise TypeError("The argument `pds` have to be Iterable.")
     else:
