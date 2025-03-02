@@ -5,7 +5,8 @@ import matplotlib.animation as animation
 from gudhi.rips_complex import RipsComplex
 from gudhi import plot_persistence_diagram
 from typing import Optional
-from collections.abc import Sized
+from collections.abc import Sized, Iterable
+from numbers import Number
 
 def is_persistence_diagram(obj):
     """
@@ -23,11 +24,11 @@ def is_persistence_diagram(obj):
     for item in obj:
         if not (isinstance(item, Sized) and len(item) == 2):
             return False
-        if not isinstance(item[0], Sized):
+        if not isinstance(item[0], int):
             return False
         if not (isinstance(item[1], Sized) and len(item[1]) == 2):
             return False
-        if not all(isinstance(coord, Sized) for coord in item[1]):
+        if not all(isinstance(coord, Number) for coord in item[1]):
             return False
     return True
 
@@ -44,6 +45,8 @@ def get_max_death_of_pds(pds):
     """
     if is_persistence_diagram(pds):
         return max([bar[1][1] for bar in pds])
+    elif not isinstance(pds, Iterable):
+        raise TypeError("The argument `pds` have to be Iterable.")
     else:
         return max([get_max_death_of_pds(obj) for obj in pds])
 
@@ -81,7 +84,7 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
     # plot persistence diagrams
     for i, (pd, ax) in enumerate(zip(pds, axes)):
         # add null point to the PD
-        pd.append([(max_dim+1, (0, high*1.01))])
+        pd.append((max_dim+1, (0, high*1.01)))
 
         # plot the PD
         plot_persistence_diagram(pd, axes=ax, colormap=pd_colormap, legend=False)
