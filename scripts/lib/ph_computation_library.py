@@ -4,6 +4,7 @@ from scipy.spatial.distance import cdist
 import torch
 import numpy as np
 from gph import ripser_parallel
+from numbers import Number
 
 class Bar:
     """
@@ -22,7 +23,8 @@ class Bar:
     def __init__(self, birth_time: float, death_time: float, 
                  birth_v1: int, birth_v2: Optional[int], death_v1: int, death_v2: int,
                  birth_simp: Optional[int]=None, death_simp: Optional[int]=None):
-        assert type(birth_time) == float and type(death_time) == float
+        assert isinstance(birth_time, Number), "birth_time should be a number."
+        assert isinstance(death_time, Number), "death_time should be a number."
         self.birth_v1: int = birth_v1
         self.birth_v2: int = birth_v2
         self.death_v1: int = death_v1
