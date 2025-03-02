@@ -93,9 +93,9 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
         if titles is not None:
             ax.set_title(titles[i])
         if x_labels is not None:
-            ax.set_xlabels(x_labels[i])
+            ax.set_xlabel(x_labels[i])
         if y_labels is not None:
-            ax.set_ylabels(y_labels[i])
+            ax.set_ylabel(y_labels[i])
 
         # add legend
         if legend:
