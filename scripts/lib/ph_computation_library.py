@@ -25,6 +25,7 @@ class Bar:
                  birth_simp: Optional[int]=None, death_simp: Optional[int]=None):
         assert isinstance(birth_time, Number), "birth_time should be a number."
         assert isinstance(death_time, Number), "death_time should be a number."
+        
         self.birth_v1: int = birth_v1
         self.birth_v2: int = birth_v2
         self.death_v1: int = death_v1
