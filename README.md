@@ -19,7 +19,7 @@ If we need matrix decomposition, we use our fast implementation inspired by [5].
 | Version | Date | Description |
 |:---:|:---:|:---|
 | [0.1.0](https://github.com/git-westriver/benchmark_ph_optimization/tree/ver-0.1.0) |  | Initial release. |
-| 0.2.0 | 2025.03.06 | Refactor the visualization feature. Fix some bugs. |
+| [0.2.0](https://github.com/git-westriver/benchmark_ph_optimization/tree/ver-0.2.0) | 2025.03.06 | Refactor the visualization feature. Fix some bugs. |
 
 ## How to start
 
