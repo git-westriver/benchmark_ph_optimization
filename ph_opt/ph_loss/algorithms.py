@@ -1,7 +1,9 @@
 from typing import Optional
 import torch
 
-from ph_opt import RipsPH, Bar, Regularization, PersistenceBasedLoss
+from ..ph_compute.ph_computation_library import RipsPH, Bar
+from .persistence_based_loss import PersistenceBasedLoss
+from .regularization import Regularization
 from ph_opt.scheduler import TransformerLR
 
 class PHOptimization:
