@@ -1,11 +1,8 @@
 from typing import Optional
-
 import torch
 
-from regularization import Regularization
-from persistence_based_loss import PersistenceBasedLoss
-from lib.ph_computation_library import RipsPH, Bar
-from lib.scheduler import TransformerLR
+from ph_opt import RipsPH, Bar, Regularization, PersistenceBasedLoss
+from ph_opt.scheduler import TransformerLR
 
 class PHOptimization:
     def __init__(self, X: torch.Tensor, loss_obj: PersistenceBasedLoss, reg_obj: Optional[Regularization]=None, reg_proj: bool=False):

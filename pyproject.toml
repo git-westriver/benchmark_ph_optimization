@@ -1,0 +1,17 @@
+[project]
+name = "ph_opt"
+version = "1.0.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "eagerpy>=0.30.0",
+    "giotto-ph>=0.2.4",
+    "gudhi>=3.11.0",
+    "ipykernel>=6.29.5",
+    "matplotlib>=3.9.4",
+    "numpy>=2.0.2",
+    "pot>=0.9.5",
+    "pybind11>=2.13.6",
+    "torch>=2.6.0",
+]

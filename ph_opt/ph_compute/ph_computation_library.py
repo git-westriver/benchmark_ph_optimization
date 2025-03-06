@@ -1,10 +1,11 @@
 from typing import Union, Optional, Any
-from lib.rips_cpp import RipsPersistentHomology
 from scipy.spatial.distance import cdist
 import torch
 import numpy as np
 from gph import ripser_parallel
 from numbers import Number
+
+from .bin.rips_cpp import RipsPersistentHomology
 
 class Bar:
     """

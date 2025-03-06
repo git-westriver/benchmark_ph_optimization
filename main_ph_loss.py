@@ -4,16 +4,19 @@ import sys
 import os
 from typing import Callable
 import time
-from itertools import product, accumulate
+from itertools import accumulate
 import pickle
-
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
+import torch
+import numpy as np
 
-from persistence_based_loss import *
-from regularization import *
-from data_loader import *
-from lib.ph_optimization_library import *
+from ph_opt import (
+    PersistenceBasedLoss, ExpandLoss, 
+    Regularization, RectangleRegularization,
+    GradientDescent, BigStep, Continuation, Diffeo
+)
+from ph_opt.data import circle_with_one_outlier, get_data
 
 @dataclasses.dataclass
 class OptConfig:
@@ -181,7 +184,8 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         fig = plt.figure(); ax = fig.add_subplot(111)
         for trial in range(conf.num_trial):
             ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
-        ax.set_xlabel("time"); ax.set_ylabel("loss")
+        ax.set_xlabel("time")
+        ax.set_ylabel("loss")
         fig.savefig(f"{savedirname}/time-loss.png")
     else: 
         # Then, mean and std of the loss over trials
@@ -198,10 +202,12 @@ def ph_opt_main(conf: Optional[OptConfig] = None):
         time_loss_mat = np.stack(time_loss_list, axis=0) # (num_trial + 1, 101)
         time_loss_mean = np.mean(time_loss_mat, axis=0)
         time_loss_std = np.std(time_loss_mat, axis=0)
-        fig = plt.figure(); ax = fig.add_subplot(111)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
         ax.plot(time_linspace, time_loss_mean, color="blue")
         ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
-        ax.set_xlabel("time"); ax.set_ylabel("loss")
+        ax.set_xlabel("time")
+        ax.set_ylabel("loss")
         fig.savefig(f"{savedirname}/time-loss.png")
     ## save loss_history_list and time_history_list ##
     result_dict = {

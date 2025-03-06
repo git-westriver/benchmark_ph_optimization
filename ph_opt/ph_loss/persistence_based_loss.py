@@ -1,7 +1,8 @@
 from typing import Optional
 import torch
 from gudhi.wasserstein import wasserstein_distance
-from lib.ph_computation_library import RipsPH, Bar
+
+from ph_opt import RipsPH, Bar
 
 # decorator to get/process rph
 def get_rph(f):
