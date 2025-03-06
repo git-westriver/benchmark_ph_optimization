@@ -112,7 +112,13 @@ class WassersteinLoss(PersistenceBasedLoss):
                 else:
                     bars_to_move.append(bar_list[i])
                     direction.append(self.desirable_pd[dim_idx][j] - barcode[i])
-            ret.append((dim, bars_to_move, torch.stack(direction, dim=0)))
+
+            if direction:
+                direction_stack = torch.stack(direction, dim=0)
+            else:
+                direction_stack = torch.empty(0, 2)
+            ret.append((dim, bars_to_move, direction_stack))
+            
         return ret
 
 class ExpandLoss(PersistenceBasedLoss):
