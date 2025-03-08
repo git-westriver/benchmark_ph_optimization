@@ -3,15 +3,17 @@ import pybind11
 import platform
 
 # check the os and decide the extra_link_args
-EXTRA_LINK_ARGS = ["-shared"]
+EXTRA_LINK_ARGS = []
 if platform.system() == "Darwin":
-    EXTRA_LINK_ARGS += ["-undefined", "dynamic_lookup"]
+    EXTRA_LINK_ARGS = ["-undefined", "dynamic_lookup"]
+else:
+    EXTRA_LINK_ARGS = ["-shared"]
 
 # Extension module of C++
 ext_modules = [
     Extension(
-        name="ph_opt.ph_compute.bin.rips_cpp",  # 出力されるモジュール名
-        sources=["ph_opt/ph_compute/ph_cpp_library_pybind.cpp"],  # C++ のソースファイル
+        name="ph_opt.ph_compute.bin.rips_cpp",
+        sources=["ph_opt/ph_compute/ph_cpp_library_pybind.cpp"],
         include_dirs=[pybind11.get_include()],
         language="c++",
 

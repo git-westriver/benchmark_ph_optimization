@@ -7,6 +7,7 @@ __pycache__/
 *.log
 *.out
 *.so
+*.egg-info
 
 results/sample
 data/*.npy
@@ -14,5 +15,3 @@ data/*.png
 tmp/
 
 notebooks/private
-
-ph_opt_public.yaml
