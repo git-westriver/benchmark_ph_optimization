@@ -1,7 +1,10 @@
 [project]
 name = "ph_opt"
 version = "1.0.0"
-description = "Add your description here"
+description = "Library for optimizing persistent homology of point clouds"
+authors = [
+    { name = "Naoki Nishikawa", email = "nishikawa-naoki259@g.ecc.u-tokyo.ac.jp" }
+]
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -15,3 +18,7 @@ dependencies = [
     "pybind11>=2.13.6",
     "torch>=2.6.0",
 ]
+
+[build-system]
+requires = ["setuptools>=42", "wheel", "pybind11"]
+build-backend = "setuptools.build_meta"
