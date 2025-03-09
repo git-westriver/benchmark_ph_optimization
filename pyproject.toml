@@ -6,17 +6,17 @@ authors = [
     { name = "Naoki Nishikawa", email = "nishikawa-naoki259@g.ecc.u-tokyo.ac.jp" }
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9.3"
 dependencies = [
-    "eagerpy>=0.30.0",
-    "giotto-ph>=0.2.4",
-    "gudhi>=3.11.0",
-    "ipykernel>=6.29.5",
-    "matplotlib>=3.9.4",
-    "numpy>=2.0.2",
-    "pot>=0.9.5",
-    "pybind11>=2.13.6",
-    "torch>=2.6.0",
+    "eagerpy>=0.29.0",
+    "giotto-ph>=0.2.2",
+    "gudhi>=3.9.0",
+    "ipykernel>=6.17.0",
+    "matplotlib>=3.8.0",
+    "numpy>=1.24.3,<2.0.0",
+    "pot>=0.9.3",
+    "pybind11>=2.6.1",
+    "torch>=2.2.0",
 ]
 
 [build-system]
