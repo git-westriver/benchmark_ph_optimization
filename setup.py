@@ -31,6 +31,7 @@ setup(
     description="Library for optimizing persistent homology",
     packages=[
         "ph_opt",
+        "ph_opt.data",
         "ph_opt.ph_compute",
         "ph_opt.ph_compute.bin",
         "ph_opt.ph_loss",
