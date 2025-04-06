@@ -103,7 +103,8 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None):
     if callable(config.data_source):
         dataset = get_data(config.data_source, 100)
     elif isinstance(config.data_source, str) or isinstance(config.data_source, Path):
-        dataset = np.load(config.data_source)
+        data = np.load(config.data_source)
+        dataset = [data for _ in range(config.num_trial)]
     else:
         raise ValueError("data_source must be a function, str, or Path.")
 
