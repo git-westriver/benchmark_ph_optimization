@@ -94,7 +94,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
     if config is None:
         config = PHTrainerConfig()
     config.print()
-    
+
     if scatter_config is None:
         scatter_config = dict(color='#377eb8')
 
@@ -185,7 +185,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
             ymin, ymax = np.min(X_history[:, :, 1]), np.max(X_history[:, :, 1])
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            sc = ax.scatter([], [], **config.scatter_config)
+            sc = ax.scatter([], [], **scatter_config)
             ax.set_aspect("equal"); ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
             def pc_update(i):
                 sc.set_offsets(X_history[i, :, :])
