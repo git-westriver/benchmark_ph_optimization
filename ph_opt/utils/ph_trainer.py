@@ -185,7 +185,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
             ymin, ymax = np.min(X_history[:, :, 1]), np.max(X_history[:, :, 1])
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            sc = ax.scatter([], [], **scatter_config)
+            sc = ax.scatter([0]*X_history.shape[1], [0]*X_history.shape[1], **scatter_config)
             ax.set_aspect("equal"); ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
             def pc_update(i):
                 sc.set_offsets(X_history[i, :, :])
@@ -200,7 +200,8 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
     ## visualization of the transition of the loss over epochs ##
     if config.num_epoch is None: 
         # Then, scatter between epoch and loss
-        fig = plt.figure(); ax = fig.add_subplot(111)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
         for trial in range(config.num_trial):
             ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
         ax.set_xlabel("epoch")
