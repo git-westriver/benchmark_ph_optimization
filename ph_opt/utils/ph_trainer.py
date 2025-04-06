@@ -183,7 +183,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
             X_history = torch.stack(X_history, axis=0).numpy()
             xmin, xmax = np.min(X_history[:, :, 0]), np.max(X_history[:, :, 0])
             ymin, ymax = np.min(X_history[:, :, 1]), np.max(X_history[:, :, 1])
-            fig = plt.figure()
+            fig = plt.figure(dpi=300)
             ax = fig.add_subplot(111)
             sc = ax.scatter([0]*X_history.shape[1], [0]*X_history.shape[1], **scatter_config)
             ax.set_aspect("equal"); ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
@@ -200,7 +200,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
     ## visualization of the transition of the loss over epochs ##
     if config.num_epoch is None: 
         # Then, scatter between epoch and loss
-        fig = plt.figure()
+        fig = plt.figure(dpi=300)
         ax = fig.add_subplot(111)
         for trial in range(config.num_trial):
             ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
@@ -212,7 +212,8 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         loss_history_mat = np.stack(loss_history_list, axis=0) # (num_trial, num_epoch+1)
         loss_mean = np.mean(loss_history_mat, axis=0)
         loss_std = np.std(loss_history_mat, axis=0)
-        fig = plt.figure(); ax = fig.add_subplot(111)
+        fig = plt.figure(dpi=300)
+        ax = fig.add_subplot(111)
         ax.plot(loss_mean, color="blue")
         ax.fill_between(np.arange(loss_mean.shape[0]), loss_mean - loss_std, loss_mean + loss_std, color="blue", alpha=0.3)
         ax.set_xlabel("epoch")
@@ -222,7 +223,8 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
     ## visualization of the transition of the loss over time ##
     if config.time_limit is None: 
         # Then, scatter between time and loss
-        fig = plt.figure(); ax = fig.add_subplot(111)
+        fig = plt.figure(dpi=300)
+        ax = fig.add_subplot(111)
         for trial in range(config.num_trial):
             ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
         ax.set_xlabel("time")
@@ -243,7 +245,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         time_loss_mat = np.stack(time_loss_list, axis=0) # (num_trial + 1, 101)
         time_loss_mean = np.mean(time_loss_mat, axis=0)
         time_loss_std = np.std(time_loss_mat, axis=0)
-        fig = plt.figure()
+        fig = plt.figure(dpi=300)
         ax = fig.add_subplot(111)
         ax.plot(time_linspace, time_loss_mean, color="blue")
         ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
