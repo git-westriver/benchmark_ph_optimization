@@ -54,6 +54,7 @@ class PHTrainerConfig:
     save_dirpath: str | Path = f"tmp/"
     data_source: Callable | str | Path = circle_with_one_outlier
     num_trial: int = 1
+    init_strategy: Optional[Callable] = None
     num_epoch: Optional[int] = None
     time_limit: Optional[float] = None
     log_interval: int = 10
@@ -69,6 +70,9 @@ class PHTrainerConfig:
     optimizer_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
     scheduler_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
     num_in_iter: int = 1 # for continuation
+
+    ### CONFIG FOR PLOTTING ###
+    scatter_config: dict = dataclasses.field(default_factory=lambda: dict(color='#377eb8')) # for scatter plot
     
     def __post_init__(self):
         # Check if `num_epoch` and `time_limit` are set correctly.
@@ -114,8 +118,14 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None):
         print(f"--- Trial {trial} ---")
         trial_start = time.time()
 
-        ## Initialize the variables and the optimization method ##
-        X = torch.tensor(dataset[trial], dtype=torch.float32, requires_grad=True)
+        ## Initialize the variables ##
+        if config.init_strategy is not None:
+            X = config.init_strategy(dataset[trial])
+        else:
+            X = torch.from_numpy(dataset[trial])
+        X = X.float().requires_grad_()
+
+        ## Initialize the optimization method ##
         if config.method == "gd":
             poh = GradientDescent(X, config.loss_obj, config.regularization_obj, reg_proj=config.reg_proj, 
                                   lr=config.lr, optimizer_conf=config.optimizer_conf, scheduler_conf=config.scheduler_conf)
@@ -173,8 +183,9 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None):
             X_history = torch.stack(X_history, axis=0).numpy()
             xmin, xmax = np.min(X_history[:, :, 0]), np.max(X_history[:, :, 0])
             ymin, ymax = np.min(X_history[:, :, 1]), np.max(X_history[:, :, 1])
-            fig = plt.figure(); ax = fig.add_subplot(111)
-            sc = ax.scatter([], [], color='#377eb8')
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            sc = ax.scatter([], [], **config.scatter_config)
             ax.set_aspect("equal"); ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
             def pc_update(i):
                 sc.set_offsets(X_history[i, :, :])
