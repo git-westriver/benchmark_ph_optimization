@@ -53,8 +53,8 @@ class PHTrainerConfig:
     exp_name: str = ""
     save_dirpath: str | Path = f"tmp/"
     data_source: Callable | str | Path = circle_with_one_outlier
-    num_trial: int = 1
     init_strategy: Optional[Callable] = None
+    num_trial: int = 1
     num_epoch: Optional[int] = None
     time_limit: Optional[float] = None
     log_interval: int = 10
@@ -70,9 +70,6 @@ class PHTrainerConfig:
     optimizer_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
     scheduler_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
     num_in_iter: int = 1 # for continuation
-
-    ### CONFIG FOR PLOTTING ###
-    scatter_config: dict = dataclasses.field(default_factory=lambda: dict(color='#377eb8')) # for scatter plot
     
     def __post_init__(self):
         # Check if `num_epoch` and `time_limit` are set correctly.
@@ -93,10 +90,13 @@ class PHTrainerConfig:
                 print(f"{k}: {v}")
         sys.stdout.flush()
 
-def ph_trainer(config: Optional[PHTrainerConfig] = None):
+def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optional[dict] = None):
     if config is None:
         config = PHTrainerConfig()
     config.print()
+    
+    if scatter_config is None:
+        scatter_config = dict(color='#377eb8')
 
     ### Create a directory if it does not exist ###
     save_dirpath = Path(config.save_dirpath) / config.exp_name if config.exp_name != "" else Path(config.save_dirpath)
