@@ -15,7 +15,8 @@ import numpy as np
 from ph_opt import (
     PersistenceBasedLoss, ExpandLoss, 
     Regularization, RectangleRegularization,
-    GradientDescent, BigStep, Continuation, Diffeo
+    GradientDescent, BigStep, Continuation, Diffeo, 
+    get_animation
 )
 from ph_opt.data import circle_with_one_outlier, get_data
 
@@ -113,7 +114,8 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         raise ValueError("data_source must be a function, str, or Path.")
 
     ### Optimization for `num_trial` different initial values ###
-    loss_history_list: list[list[float]] = []; time_history_list: list[list[float]] = []
+    loss_history_list: list[list[float]] = []
+    time_history_list: list[list[float]] = []
     for trial in range(config.num_trial):
         print(f"--- Trial {trial} ---")
         trial_start = time.time()
@@ -145,7 +147,8 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         X_history = []
         loss_history = []
         time_history = [0]
-        epoch = -1; elapsed_time = 0
+        epoch = -1
+        elapsed_time = 0
         while ((config.num_epoch is not None and epoch < config.num_epoch - 1) 
                 or (config.time_limit is not None and elapsed_time < config.time_limit)):
             epoch += 1
@@ -166,7 +169,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         loss = poh.get_loss()
         loss_history.append(loss.item())
         X_history.append(poh.X.detach().clone())
-        print(f"Final loss: {loss.item()}")
+        print(f"Final loss: {loss.item()}", flush=True)
 
         ## Finish the optimization and record the results ##
         # convert time_history to cumulative time
@@ -176,21 +179,17 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         loss_history_list.append(loss_history)
         time_history_list.append(time_history)
 
-        ## For the first trial, save X_history as ndarray and gif ##
+        ## For the first trial, save X_history and create a gif ##
         if trial == 0:
+            # save X_history
             with open(save_dirpath / "X_history.pkl", "wb") as f:
                 pickle.dump(X_history, f)
-            X_history = torch.stack(X_history, axis=0).numpy()
-            xmin, xmax = np.min(X_history[:, :, 0]), np.max(X_history[:, :, 0])
-            ymin, ymax = np.min(X_history[:, :, 1]), np.max(X_history[:, :, 1])
-            fig = plt.figure(dpi=300)
-            ax = fig.add_subplot(111)
-            sc = ax.scatter([0]*X_history.shape[1], [0]*X_history.shape[1], **scatter_config)
-            ax.set_aspect("equal"); ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
-            def pc_update(i):
-                sc.set_offsets(X_history[i, :, :])
-                return sc, 
-            anim = animation.FuncAnimation(fig, pc_update, frames=X_history.shape[0], interval=100)
+
+            # create a gif
+            anim = get_animation([X_history], [[loss_history]], 
+                                dim_list=config.loss_obj.dim_list,
+                                title_list=[config.method], 
+                                vertical=False)
             anim.save(save_dirpath / "X_history.gif", writer='pillow')
 
         ## Finish the trial ##

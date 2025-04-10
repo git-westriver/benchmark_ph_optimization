@@ -111,6 +111,7 @@ def get_animation(
         title_list: list[str],
         color_list: Optional[list[str]] = None,
         figsize: Optional[tuple[int, int]] = None,
+        vertical: Optional[bool] = True,
     ) -> animation.FuncAnimation:
     """
     Create an animation of optimization process.
@@ -123,6 +124,7 @@ def get_animation(
         title_list (list[str]): List of titles for each experiment setting.
         color_list (Optional[list[str]], default=None): List of colors for each experiment setting. If None, red, green, and blue are repeatedly used.
         figsize (tuple[int, int]): Figure size. If None, the size is set to (5 * len(title_list), 15).
+        vertical (Optional[bool], default=True): If True, the animation is drawn vertically for each experiment setting.
     """
     # num_setting, num_epoch
     num_setting = len(X_history)
@@ -136,10 +138,13 @@ def get_animation(
         default_colors = ["red", "green", "blue", "orange"]
         color_list = [default_colors[i%len(default_colors)] for i in range(num_setting)]
     if figsize is None:
-        figsize = (5 * len(title_list), 15)
+        if vertical:
+            figsize = (15, 5 * len(title_list))
+        else:
+            figsize = (5 * len(title_list), 15)
 
     # loss_mean, loss_std
-    loss_mean = []; loss_std = []
+    loss_mean, loss_std = [], []
     for i in range(num_setting):
         loss_mean.append(np.mean([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
         loss_std.append(np.std([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
@@ -155,7 +160,10 @@ def get_animation(
     max_loss = max([loss_mean[i][0] for i in range(num_setting)])
     loss_range = max_loss - min_loss
     min_loss, max_loss = min_loss - 0.005 * loss_range, max_loss + 0.005 * loss_range
-    fig, axes = plt.subplots(3, num_setting, figsize=(5*num_setting, 15))
+    if vertical:
+        fig, axes = plt.subplots(3, num_setting, figsize=figsize)
+    else:
+        fig, axes = plt.subplots(num_setting, 3, figsize=figsize)
 
     # compute PDs beforehand
     PD_history = [[] for i in range(num_setting)]
@@ -181,12 +189,10 @@ def get_animation(
             loss = loss_mean[i][idx]
 
             # get axes
-            ax_X = axes[0, i]
-            ax_pd = axes[1, i]
-            ax_loss = axes[2, i]
+            ax_X, ax_pd, ax_loss = axes[:, i] if vertical else axes[i, :]
 
             # plot the optimization variable
-            ax_X.clear(); ax_pd.clear(); ax_loss.clear()
+            ax_X.clear()
             ax_X.set_title(title_list[i])
             ax_X.set_xlim(xmin, xmax)
             ax_X.set_ylim(ymin, ymax)
@@ -194,10 +200,12 @@ def get_animation(
             ax_X.set_aspect("equal")
 
             # draw the PD
+            ax_pd.clear()
             plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, 
                                        titles=[""], x_labels=[""], y_labels=[""])
 
             # draw the loss curve
+            ax_loss.clear()
             ax_loss.set_xlim(-1, num_epoch)
             ax_loss.set_ylim(min_loss, max_loss)
             ax_loss.plot(loss_mean[i][:idx+1], color=color_list[i])
