@@ -3,11 +3,12 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from gudhi.rips_complex import RipsComplex
 from gudhi import plot_persistence_diagram
 from typing import Optional
 from collections.abc import Sized, Iterable
 from numbers import Number
+
+from ph_opt import RipsPH
 
 def is_persistence_diagram(obj):
     """
@@ -177,10 +178,15 @@ def get_animation(
     max_death = 0
     for i in range(num_setting):
         for j in range(len(X_history[i])):
-            rips = RipsComplex(points=X_history[i][j].detach().numpy())
-            simplex_tree = rips.create_simplex_tree(max_dimension=max_dim+1)
-            barcode = simplex_tree.persistence()
-            barcode = [(dim, (birth, death)) for dim, (birth, death) in barcode if dim in dim_list]
+            print(i, j)
+            rph = RipsPH(X_history[i][j].detach().numpy(), maxdim=max_dim)
+            barcode = []
+            for dim in dim_list:
+                barcode += [(dim, (birth, death)) for birth, death in rph.get_barcode(dim)]
+            # rips = RipsComplex(points=X_history[i][j].detach().numpy())
+            # simplex_tree = rips.create_simplex_tree(max_dimension=max_dim+1)
+            # barcode = simplex_tree.persistence()
+            # barcode = [(dim, (birth, death)) for dim, (birth, death) in barcode if dim in dim_list]
             PD_history[i].append(barcode)
 
     # get maximum death value
