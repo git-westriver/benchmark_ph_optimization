@@ -186,11 +186,14 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
                 pickle.dump(X_history, f)
 
             # create a gif
+            print("uoaaa1")
             anim = get_animation([X_history], [[loss_history]], 
                                 dim_list=config.loss_obj.dim_list,
                                 title_list=[config.method], 
                                 vertical=False)
+            print("uoaaa2")
             anim.save(save_dirpath / "X_history.gif", writer='pillow')
+            print("uoaaa11")
 
         ## Finish the trial ##
         print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)
