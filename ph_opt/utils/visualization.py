@@ -45,7 +45,9 @@ def get_max_death_of_pds(pds):
     Returns:
         float: Maximum death value.
     """
-    if is_persistence_diagram(pds):
+    if not pds:
+        return 0
+    elif is_persistence_diagram(pds):
         return max([death for dim, (birth, death) in pds if not math.isinf(death)])
     elif not isinstance(pds, Iterable):
         raise TypeError("The argument `pds` have to be Iterable.")
