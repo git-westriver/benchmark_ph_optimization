@@ -167,9 +167,10 @@ def get_animation(
     loss_range = max_loss - min_loss
     min_loss, max_loss = min_loss - 0.005 * loss_range, max_loss + 0.005 * loss_range
     if vertical:
-        fig, axes = plt.subplots(3, num_setting, figsize=figsize)
+        fig, axes = plt.subplots(3, num_setting, figsize=figsize, squeeze=False)
     else:
-        fig, axes = plt.subplots(num_setting, 3, figsize=figsize)
+        fig, axes = plt.subplots(num_setting, 3, figsize=figsize, squeeze=False)
+        axes = axes.T
 
     # compute PDs beforehand
     print("uoaaa8")
@@ -202,7 +203,7 @@ def get_animation(
             loss = loss_mean[i][idx]
 
             # get axes
-            ax_X, ax_pd, ax_loss = axes[:, i] if vertical else axes[i]
+            ax_X, ax_pd, ax_loss = axes[:, i]
 
             # plot the optimization variable
             ax_X.clear()
