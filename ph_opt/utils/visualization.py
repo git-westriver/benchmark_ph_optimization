@@ -191,6 +191,7 @@ def get_animation(
             X = X_history[i][idx].detach().numpy()
             pd = PD_history[i][idx]
             loss = loss_mean[i][idx]
+            print("bo", dim_list, max([max([bar[0] for bar in pd]) for pd in [barcode]]))
 
             # get axes
             ax_X, ax_pd, ax_loss = axes[:, i]
