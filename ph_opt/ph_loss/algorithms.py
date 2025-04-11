@@ -99,7 +99,7 @@ class BigStep(PHOptimization):
                 b_direc, d_direc = direction[i]
                 b_target, d_target = bar_list[i].birth_time + b_direc, bar_list[i].death_time + d_direc
                 if b_direc > 0: # increase birth
-                    print(dim)
+                    print(dim, b_simp, d_simp)
                     for simp in rph.W[dim][b_simp]:
                         if simp in high_target_value[dim]:
                             high_target_value[dim][simp] = max(b_target, high_target_value[dim][simp])
