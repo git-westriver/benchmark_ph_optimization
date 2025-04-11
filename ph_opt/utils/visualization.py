@@ -180,6 +180,8 @@ def get_animation(
                 barcode += [(dim, (birth, death)) for birth, death in rph.get_barcode(dim)]
             PD_history[i].append(barcode)
             print("gu", dim_list, max([max([bar[0] for bar in pd]) for pd in [barcode]]))
+        for pd in PD_history[i]:
+            print("sha", i, dim_list, max([max([bar[0] for bar in _pd]) for _pd in [pd]]))
 
     # get maximum death value
     max_death = get_max_death_of_pds(PD_history)
