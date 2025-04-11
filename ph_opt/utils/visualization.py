@@ -73,6 +73,7 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
 
     # get maximum dimension
     max_dim = max([max([bar[0] for bar in pd]) for pd in pds])
+    print("pe", max_dim)
 
     # get colormap
     pd_colormap = list(plt.cm.Set1.colors)
@@ -177,10 +178,6 @@ def get_animation(
             barcode = []
             for dim in dim_list:
                 barcode += [(dim, (birth, death)) for birth, death in rph.get_barcode(dim)]
-            # rips = RipsComplex(points=X_history[i][j].detach().numpy())
-            # simplex_tree = rips.create_simplex_tree(max_dimension=max_dim+1)
-            # barcode = simplex_tree.persistence()
-            # barcode = [(dim, (birth, death)) for dim, (birth, death) in barcode if dim in dim_list]
             PD_history[i].append(barcode)
 
     # get maximum death value
