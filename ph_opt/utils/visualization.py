@@ -191,7 +191,7 @@ def get_animation(
             X = X_history[i][idx].detach().numpy()
             pd = PD_history[i][idx]
             loss = loss_mean[i][idx]
-            print("bo", dim_list, max([max([bar[0] for bar in pd]) for pd in [barcode]]))
+            print("bo", dim_list, max([max([bar[0] for bar in _pd]) for _pd in [pd]]))
 
             # get axes
             ax_X, ax_pd, ax_loss = axes[:, i]
@@ -206,6 +206,7 @@ def get_animation(
 
             # draw the PD
             ax_pd.clear()
+            print("bii", dim_list, max([max([bar[0] for bar in _pd]) for _pd in [pd]]))
             plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, 
                                        titles=[""], x_labels=[""], y_labels=[""])
 
