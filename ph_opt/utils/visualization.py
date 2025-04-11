@@ -140,10 +140,9 @@ def get_animation(
         color_list = [default_colors[i%len(default_colors)] for i in range(num_setting)]
     if figsize is None:
         if vertical:
-            figsize = (15, 5 * len(title_list))
-        else:
             figsize = (5 * len(title_list), 15)
-    print(figsize)
+        else:
+            figsize = (15, 5 * len(title_list))
 
     # loss_mean, loss_std
     loss_mean, loss_std = [], []
