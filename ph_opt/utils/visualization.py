@@ -73,7 +73,6 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
 
     # get maximum dimension
     max_dim = max([max([bar[0] for bar in pd]) for pd in pds])
-    print("pe", max_dim)
 
     # get colormap
     pd_colormap = list(plt.cm.Set1.colors)
@@ -179,9 +178,6 @@ def get_animation(
             for dim in dim_list:
                 barcode += [(dim, (birth, death)) for birth, death in rph.get_barcode(dim)]
             PD_history[i].append(barcode)
-            print("gu", dim_list, max([max([bar[0] for bar in pd]) for pd in [barcode]]))
-        for pd in PD_history[i]:
-            print("sha", i, dim_list, max([max([bar[0] for bar in _pd]) for _pd in [pd]]))
 
     # get maximum death value
     max_death = get_max_death_of_pds(PD_history)
@@ -193,7 +189,6 @@ def get_animation(
             X = X_history[i][idx].detach().numpy()
             pd = PD_history[i][idx]
             loss = loss_mean[i][idx]
-            print("bo", i, dim_list, max([max([bar[0] for bar in _pd]) for _pd in [pd]]))
 
             # get axes
             ax_X, ax_pd, ax_loss = axes[:, i]
@@ -208,7 +203,6 @@ def get_animation(
 
             # draw the PD
             ax_pd.clear()
-            print("bii", dim_list, max([max([bar[0] for bar in _pd]) for _pd in [pd]]))
             plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, 
                                        titles=[""], x_labels=[""], y_labels=[""])
 
