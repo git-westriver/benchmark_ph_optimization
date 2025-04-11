@@ -96,9 +96,6 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         config = PHTrainerConfig()
     config.print()
 
-    if scatter_config is None:
-        scatter_config = dict(color='#377eb8')
-
     ### Create a directory if it does not exist ###
     save_dirpath = Path(config.save_dirpath) / config.exp_name if config.exp_name != "" else Path(config.save_dirpath)
     if not os.path.exists(save_dirpath):
@@ -189,8 +186,9 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
             anim = get_animation([X_history], [[loss_history]], 
                                 dim_list=config.loss_obj.dim_list,
                                 title_list=[config.method], 
-                                vertical=False)
-            anim.save(save_dirpath / "X_history.gif", writer='pillow')
+                                vertical=False, 
+                                scatter_config=scatter_config)
+            anim.save(save_dirpath / "trajectory.gif", writer='pillow')
 
         ## Finish the trial ##
         print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)

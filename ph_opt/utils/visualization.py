@@ -113,6 +113,7 @@ def get_animation(
         color_list: Optional[list[str]] = None,
         figsize: Optional[tuple[int, int]] = None,
         vertical: Optional[bool] = True,
+        scatter_config: Optional[dict] = None,
     ) -> animation.FuncAnimation:
     """
     Create an animation of optimization process.
@@ -143,6 +144,8 @@ def get_animation(
             figsize = (5 * len(title_list), 15)
         else:
             figsize = (15, 5 * len(title_list))
+    if scatter_config is None:
+        scatter_config = dict(color='black')
 
     # loss_mean, loss_std
     loss_mean, loss_std = [], []
@@ -198,7 +201,7 @@ def get_animation(
             ax_X.set_title(title_list[i])
             ax_X.set_xlim(xmin, xmax)
             ax_X.set_ylim(ymin, ymax)
-            ax_X.scatter(X[:, 0], X[:, 1], c="black")
+            ax_X.scatter(X[:, 0], X[:, 1], **scatter_config)
             ax_X.set_aspect("equal")
 
             # draw the PD
