@@ -128,7 +128,6 @@ def get_animation(
         vertical (Optional[bool], default=True): If True, the animation is drawn vertically for each experiment setting.
     """
     # num_setting, num_epoch
-    print("uoaaa3")
     num_setting = len(X_history)
     num_epoch = len(loss_history[0][0])
     for i in range(len(loss_history)):
@@ -136,7 +135,6 @@ def get_animation(
             num_epoch = min(num_epoch, len(loss_history[i][j]))
 
     # convert None to default values
-    print("uoaaa4")
     if color_list is None:
         default_colors = ["red", "green", "blue", "orange"]
         color_list = [default_colors[i%len(default_colors)] for i in range(num_setting)]
@@ -145,23 +143,21 @@ def get_animation(
             figsize = (15, 5 * len(title_list))
         else:
             figsize = (5 * len(title_list), 15)
+    print(figsize)
 
     # loss_mean, loss_std
-    print("uoaaa5")
     loss_mean, loss_std = [], []
     for i in range(num_setting):
         loss_mean.append(np.mean([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
         loss_std.append(np.std([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
 
     # xmin, xmax, ymin, ymax
-    print("uoaaa6")
     xmin = min([torch.min(X_history[i][j][:, 0]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     xmax = max([torch.max(X_history[i][j][:, 0]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     ymin = min([torch.min(X_history[i][j][:, 1]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
     ymax = max([torch.max(X_history[i][j][:, 1]).item() for i in range(num_setting) for j in range(len(X_history[i]))])
 
     # min_loss, max_loss
-    print("uoaaa7")
     min_loss = min([np.min(loss_mean[i]) for i in range(num_setting)])
     max_loss = max([loss_mean[i][0] for i in range(num_setting)])
     loss_range = max_loss - min_loss
@@ -173,13 +169,11 @@ def get_animation(
         axes = axes.T
 
     # compute PDs beforehand
-    print("uoaaa8")
     PD_history = [[] for i in range(num_setting)]
     max_dim = max(dim_list)
     max_death = 0
     for i in range(num_setting):
         for j in range(len(X_history[i])):
-            print(i, j)
             rph = RipsPH(X_history[i][j].detach().numpy(), maxdim=max_dim)
             barcode = []
             for dim in dim_list:
@@ -191,7 +185,6 @@ def get_animation(
             PD_history[i].append(barcode)
 
     # get maximum death value
-    print("uoaaa9")
     max_death = get_max_death_of_pds(PD_history)
 
     # update function for animation
@@ -228,7 +221,6 @@ def get_animation(
             ax_loss.plot([idx, idx], [min_loss, max_loss], color=color_list[i], linestyle="--")
 
     # create animation
-    print("uoaaa10")
     ani = animation.FuncAnimation(fig, update, frames=num_epoch, interval=100)
 
     return ani
