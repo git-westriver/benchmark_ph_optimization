@@ -87,10 +87,10 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
     # plot persistence diagrams
     for i, (pd, ax) in enumerate(zip(pds, axes)):
         # add null point to the PD
-        pd.append((max_dim+1, (0, high*1.01)))
+        _pd = pd + [(max_dim+1, (0, high*1.01))]
 
         # plot the PD
-        plot_persistence_diagram(pd, axes=ax, colormap=pd_colormap, legend=False)
+        plot_persistence_diagram(_pd, axes=ax, colormap=pd_colormap, legend=False)
 
         # set title and labels
         if titles is not None:
