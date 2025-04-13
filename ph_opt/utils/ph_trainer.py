@@ -15,7 +15,7 @@ import numpy as np
 from ph_opt import (
     PersistenceBasedLoss, ExpandLoss, 
     Regularization, RectangleRegularization,
-    GradientDescent, BigStep, Continuation, Diffeo, 
+    PHOptimization, GradientDescent, BigStep, Continuation, Diffeo, 
     get_animation
 )
 from ph_opt.data import circle_with_one_outlier, get_data
@@ -91,63 +91,115 @@ class PHTrainerConfig:
                 print(f"{k}: {v}")
         sys.stdout.flush()
 
-def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optional[dict] = None):
-    if config is None:
-        config = PHTrainerConfig()
-    config.print()
+class PHTrainer:
+    def __init__(self, config: Optional[PHTrainerConfig] = None, scatter_config: Optional[dict] = None):
+        if config is None:
+            config = PHTrainerConfig()
+        config.print()
 
-    ### Create a directory if it does not exist ###
-    save_dirpath = Path(config.save_dirpath) / config.exp_name if config.exp_name != "" else Path(config.save_dirpath)
-    if not os.path.exists(save_dirpath):
-        os.makedirs(save_dirpath)
+        self.config = config
+        self.scatter_config = scatter_config
 
-    ### Read data ###
-    if callable(config.data_source):
-        dataset = get_data(config.data_source, 100)
-    elif isinstance(config.data_source, str) or isinstance(config.data_source, Path):
-        data = np.load(config.data_source)
-        dataset = [data for _ in range(config.num_trial)]
-    else:
-        raise ValueError("data_source must be a function, str, or Path.")
+    def train(self):
+        # Create a directory if it does not exist
+        self._maybe_create_dir()
 
-    ### Optimization for `num_trial` different initial values ###
-    loss_history_list: list[list[float]] = []
-    time_history_list: list[list[float]] = []
-    for trial in range(config.num_trial):
-        print(f"--- Trial {trial} ---")
-        trial_start = time.time()
+        # Read data
+        dataset = self.read_data()
 
-        ## Initialize the variables ##
-        if config.init_strategy is not None:
-            X = config.init_strategy(dataset[trial])
+        # Optimization for `num_trial` different initial values
+        loss_history_list: list[list[float]] = []
+        time_history_list: list[list[float]] = []
+        for trial in range(self.config.num_trial):
+            print(f"--- Trial {trial} ---")
+            trial_start = time.time()
+
+            # Initialize the variable
+            X = self.initialize_variable(dataset, trial)
+
+            # Initialize the optimization method
+            poh = self.initialize_method(X)
+            
+            # Optimization
+            X_history, loss_history, time_history = self.run_optimization(poh)
+
+            # add loss_history, time_history to the list
+            loss_history_list.append(loss_history)
+            time_history_list.append(time_history)
+
+            # For the first trial, save X_history and create a gif
+            if trial == 0:
+                # save X_history
+                with open(self.config.save_dirpath / "X_history.pkl", "wb") as f:
+                    pickle.dump(X_history, f)
+
+                # create a gif
+                anim = get_animation([X_history], [[loss_history]], 
+                                    dim_list=self.config.loss_obj.dim_list,
+                                    title_list=[self.config.method], 
+                                    vertical=False, 
+                                    scatter_config=self.scatter_config)
+                anim.save(self.config.save_dirpath / "trajectory.gif", writer='pillow')
+
+            # Finish the trial
+            print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)
+
+        # save loss_history_list and time_history_list
+        result_dict = {
+            "loss_history": loss_history_list,
+            "time_history": time_history_list,
+        }
+        with open(self.config.save_dirpath / "result_dict.pkl", "wb") as f:
+            pickle.dump(result_dict, f)
+    
+    def _maybe_create_dir(self):
+        save_dirpath = Path(self.config.save_dirpath) / self.config.exp_name if self.config.exp_name != "" else Path(self.config.save_dirpath)
+        if not os.path.exists(save_dirpath):
+            os.makedirs(save_dirpath)
+
+    def read_data(self):
+        if callable(self.config.data_source):
+            dataset = get_data(self.config.data_source, 100)
+        elif isinstance(self.config.data_source, str) or isinstance(self.config.data_source, Path):
+            data = np.load(self.config.data_source)
+            dataset = [data for _ in range(self.config.num_trial)]
+        else:
+            raise ValueError("data_source must be a function, str, or Path.")
+        return dataset
+    
+    def initialize_variable(self, dataset, trial):
+        if self.config.init_strategy is not None:
+            X = self.config.init_strategy(dataset[trial])
         else:
             X = torch.from_numpy(dataset[trial])
         X = X.float().requires_grad_()
-
-        ## Initialize the optimization method ##
-        if config.method == "gd":
-            poh = GradientDescent(X, config.loss_obj, config.regularization_obj, reg_proj=config.reg_proj, 
-                                  lr=config.lr, optimizer_conf=config.optimizer_conf, scheduler_conf=config.scheduler_conf)
-        elif config.method == "bigstep":
-            poh = BigStep(X, config.loss_obj, config.regularization_obj, reg_proj=config.reg_proj, 
-                          lr=config.lr, optimizer_conf=config.optimizer_conf, scheduler_conf=config.scheduler_conf)
-        elif config.method == "diffeo":
-            poh = Diffeo(X, config.loss_obj, config.regularization_obj, reg_proj=config.reg_proj, 
-                        lr=config.lr, optimizer_conf=config.optimizer_conf, scheduler_conf=config.scheduler_conf)
-        elif config.method == "continuation":
-            poh = Continuation(X, config.loss_obj, config.regularization_obj, 
-                               lr=config.lr, in_iter_num=config.num_in_iter)
+        return X
+    
+    def initialize_method(self, X) -> PHOptimization:
+        if self.config.method == "gd":
+            poh = GradientDescent(X, self.config.loss_obj, self.config.regularization_obj, reg_proj=self.config.reg_proj, 
+                                  lr=self.config.lr, optimizer_conf=self.config.optimizer_conf, scheduler_conf=self.config.scheduler_conf)
+        elif self.config.method == "bigstep":
+            poh = BigStep(X, self.config.loss_obj, self.config.regularization_obj, reg_proj=self.config.reg_proj, 
+                          lr=self.config.lr, optimizer_conf=self.config.optimizer_conf, scheduler_conf=self.config.scheduler_conf)
+        elif self.config.method == "diffeo":
+            poh = Diffeo(X, self.config.loss_obj, self.config.regularization_obj, reg_proj=self.config.reg_proj, 
+                        lr=self.config.lr, optimizer_conf=self.config.optimizer_conf, scheduler_conf=self.config.scheduler_conf)
+        elif self.config.method == "continuation":
+            poh = Continuation(X, self.config.loss_obj, self.config.regularization_obj, 
+                               lr=self.config.lr, in_iter_num=self.config.num_in_iter)
         else:
             raise NotImplementedError
-        
-        ## Optimization ##
+        return poh
+    
+    def run_optimization(self, poh: PHOptimization) -> tuple[list[torch.Tensor], list[float], list[float]]:
         X_history = []
         loss_history = []
         time_history = [0]
         epoch = -1
         elapsed_time = 0
-        while ((config.num_epoch is not None and epoch < config.num_epoch - 1) 
-                or (config.time_limit is not None and elapsed_time < config.time_limit)):
+        while ((self.config.num_epoch is not None and epoch < self.config.num_epoch - 1)
+                or (self.config.time_limit is not None and elapsed_time < self.config.time_limit)):
             epoch += 1
             elapsed_time += time_history[-1]
 
@@ -155,7 +207,7 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
             loss = poh.get_loss()
             loss_history.append(loss.item())
             X_history.append(poh.X.detach().clone())
-            if epoch % config.log_interval == 0:
+            if epoch % self.config.log_interval == 0:
                 print(f"epoch: {epoch}, loss: {loss.item()}", flush=True)
 
             # update the variables with the specified method and measure the time of epoch
@@ -168,93 +220,64 @@ def ph_trainer(config: Optional[PHTrainerConfig] = None, scatter_config: Optiona
         X_history.append(poh.X.detach().clone())
         print(f"Final loss: {loss.item()}", flush=True)
 
-        ## Finish the optimization and record the results ##
         # convert time_history to cumulative time
         time_history = list(accumulate(time_history))
 
-        # add loss_history, time_history to the list
-        loss_history_list.append(loss_history)
-        time_history_list.append(time_history)
-
-        ## For the first trial, save X_history and create a gif ##
-        if trial == 0:
-            # save X_history
-            with open(save_dirpath / "X_history.pkl", "wb") as f:
-                pickle.dump(X_history, f)
-
-            # create a gif
-            anim = get_animation([X_history], [[loss_history]], 
-                                dim_list=config.loss_obj.dim_list,
-                                title_list=[config.method], 
-                                vertical=False, 
-                                scatter_config=scatter_config)
-            anim.save(save_dirpath / "trajectory.gif", writer='pillow')
-
-        ## Finish the trial ##
-        print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)
-
-    ### Visualization and saving the results ###
-    ## visualization of the transition of the loss over epochs ##
-    if config.num_epoch is None: 
-        # Then, scatter between epoch and loss
-        fig = plt.figure(dpi=300)
-        ax = fig.add_subplot(111)
-        for trial in range(config.num_trial):
-            ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
-        ax.set_xlabel("epoch")
-        ax.set_ylabel("loss")
-        fig.savefig(save_dirpath / "epoch-loss.png")
-    else: 
-        # Then, mean and std of the loss over trials
-        loss_history_mat = np.stack(loss_history_list, axis=0) # (num_trial, num_epoch+1)
-        loss_mean = np.mean(loss_history_mat, axis=0)
-        loss_std = np.std(loss_history_mat, axis=0)
-        fig = plt.figure(dpi=300)
-        ax = fig.add_subplot(111)
-        ax.plot(loss_mean, color="blue")
-        ax.fill_between(np.arange(loss_mean.shape[0]), loss_mean - loss_std, loss_mean + loss_std, color="blue", alpha=0.3)
-        ax.set_xlabel("epoch")
-        ax.set_ylabel("loss")
-        fig.savefig(save_dirpath /"epoch-loss.png")
-
-    ## visualization of the transition of the loss over time ##
-    if config.time_limit is None: 
-        # Then, scatter between time and loss
-        fig = plt.figure(dpi=300)
-        ax = fig.add_subplot(111)
-        for trial in range(config.num_trial):
-            ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
-        ax.set_xlabel("time")
-        ax.set_ylabel("loss")
-        fig.savefig(f"{save_dirpath}/time-loss.png")
-    else: 
-        # Then, mean and std of the loss over trials
-        time_linspace = np.linspace(0, config.time_limit, 101)
-        time_loss_list = [[loss_history_list[trial][0]] for trial in range(config.num_trial)]
-        for trial in range(config.num_trial):
-            # loss value at time t is the last loss value before t
-            # Note: loss_history_list[trial][cur_epoch] is after cur_epoch, loss_history_list[trial][cur_epoch-1] is before cur_epoch
-            cur_epoch = 0 
-            for t in time_linspace[1:]:
-                while cur_epoch < len(loss_history_list[trial]) - 1 and time_history_list[trial][cur_epoch] < t:
-                    cur_epoch += 1
-                time_loss_list[trial].append(loss_history_list[trial][cur_epoch])
-        time_loss_mat = np.stack(time_loss_list, axis=0) # (num_trial + 1, 101)
-        time_loss_mean = np.mean(time_loss_mat, axis=0)
-        time_loss_std = np.std(time_loss_mat, axis=0)
-        fig = plt.figure(dpi=300)
-        ax = fig.add_subplot(111)
-        ax.plot(time_linspace, time_loss_mean, color="blue")
-        ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
-        ax.set_xlabel("time")
-        ax.set_ylabel("loss")
-        fig.savefig(save_dirpath / "time-loss.png")
-
-    ## save loss_history_list and time_history_list ##
-    result_dict = {
-        "loss_history": loss_history_list,
-        "time_history": time_history_list,
-    }
-    with open(save_dirpath / "result_dict.pkl", "wb") as f:
-        pickle.dump(result_dict, f)
+        return X_history, loss_history, time_history
     
+    def visualize_loss(self, loss_history_list: list[list[float]], time_history_list: list[list[float]]):
+        ## visualization of the transition of the loss over epochs ##
+        if self.config.num_epoch is None: 
+            # Then, scatter between epoch and loss
+            fig = plt.figure(dpi=300)
+            ax = fig.add_subplot(111)
+            for trial in range(self.config.num_trial):
+                ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
+            ax.set_xlabel("epoch")
+            ax.set_ylabel("loss")
+            fig.savefig(self.config.save_dirpath / "epoch-loss.png")
+        else:
+            # Then, mean and std of the loss over trials
+            loss_history_mat = np.stack(loss_history_list, axis=0) # (num_trial, num_epoch+1)
+            loss_mean = np.mean(loss_history_mat, axis=0)
+            loss_std = np.std(loss_history_mat, axis=0)
+            fig = plt.figure(dpi=300)
+            ax = fig.add_subplot(111)
+            ax.plot(loss_mean, color="blue")
+            ax.fill_between(np.arange(loss_mean.shape[0]), loss_mean - loss_std, loss_mean + loss_std, color="blue", alpha=0.3)
+            ax.set_xlabel("epoch")
+            ax.set_ylabel("loss")
+            fig.savefig(self.config.save_dirpath /"epoch-loss.png")
+
+        ## visualization of the transition of the loss over time ##
+        if self.config.time_limit is None: 
+            # Then, scatter between time and loss
+            fig = plt.figure(dpi=300)
+            ax = fig.add_subplot(111)
+            for trial in range(self.config.num_trial):
+                ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
+            ax.set_xlabel("time")
+            ax.set_ylabel("loss")
+            fig.savefig(f"{self.config.save_dirpath}/time-loss.png")
+        else: 
+            # Then, mean and std of the loss over trials
+            time_linspace = np.linspace(0, self.config.time_limit, 101)
+            time_loss_list = [[loss_history_list[trial][0]] for trial in range(self.config.num_trial)]
+            for trial in range(self.config.num_trial):
+                # loss value at time t is the last loss value before t
+                # Note: loss_history_list[trial][cur_epoch] is after cur_epoch, loss_history_list[trial][cur_epoch-1] is before cur_epoch
+                cur_epoch = 0 
+                for t in time_linspace[1:]:
+                    while cur_epoch < len(loss_history_list[trial]) - 1 and time_history_list[trial][cur_epoch] < t:
+                        cur_epoch += 1
+                    time_loss_list[trial].append(loss_history_list[trial][cur_epoch])
+            time_loss_mat = np.stack(time_loss_list, axis=0) # (num_trial + 1, 101)
+            time_loss_mean = np.mean(time_loss_mat, axis=0)
+            time_loss_std = np.std(time_loss_mat, axis=0)
+            fig = plt.figure(dpi=300)
+            ax = fig.add_subplot(111)
+            ax.plot(time_linspace, time_loss_mean, color="blue")
+            ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
+            ax.set_xlabel("time")
+            ax.set_ylabel("loss")
+            fig.savefig(self.config.save_dirpath / "time-loss.png")
