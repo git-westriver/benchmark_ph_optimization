@@ -334,7 +334,7 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         return dF_dX, None, None, None, None 
     
 def powered_wasserstein_distance_one_sided_with_diffeo_grad(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int],
-                                                    order: int = 2, sigma: float = 0.1):
+                                                            order: int = 2, sigma: float = 0.1):
     """
     Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
     with improved gradient using diffeomorphic interpolation.
@@ -352,7 +352,7 @@ def powered_wasserstein_distance_one_sided_with_diffeo_grad(X: torch.Tensor, ref
     return _powered_wasserstein_distance_one_sided_with_diffeo_grad.apply(X, ref_pd, dims, order, sigma)
 
 def powered_wasserstein_distance_one_sided_with_improved_grad(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
-                                                      grad_type: str = "standard", sigma: float = 0.1):
+                                                              grad_type: str = "standard", sigma: float = 0.1):
     """
     Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
     with improved gradient using specialized method.

@@ -4,7 +4,8 @@ import torch
 from ..ph_compute.ph_computation_library import RipsPH, Bar
 from .persistence_based_loss import PersistenceBasedLoss
 from .regularization import Regularization
-from ph_opt.scheduler import TransformerLR
+from ph_opt.optimizer import get_optimizer
+from ph_opt.scheduler import get_scheduler
 
 class PHOptimization:
     def __init__(self, X: torch.Tensor, loss_obj: PersistenceBasedLoss, reg_obj: Optional[Regularization]=None, reg_proj: bool=False):
@@ -30,23 +31,9 @@ class GradientDescent(PHOptimization):
                  lr: float=1e-1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
         super().__init__(X, loss_obj, reg_obj, reg_proj)
 
-        # optimizer
-        if optimizer_conf is None:
-            optimizer_conf = {"name": "SGD"}
-        optimizer_name = optimizer_conf.get("name", "SGD")
-        if optimizer_name == "SGD":
-            self.optimizer = torch.optim.SGD([self.X], lr=lr)
-        elif optimizer_name == "Adam":
-            self.optimizer = torch.optim.Adam([self.X], lr=lr)
-
-        # scheduler
-        if scheduler_conf is None:
-            scheduler_conf = {"name": "const"}
-        scheduler_name = scheduler_conf.get("name", "const")
-        if scheduler_name == "const":
-            self.scheduler = None
-        elif scheduler_name == "TransformerLR":
-            self.scheduler = TransformerLR(self.optimizer, warmup_epochs=scheduler_conf.get("warmup_epochs", 100))
+        # get optimizer and scheduler
+        self.optimizer = get_optimizer([self.X], lr=lr, **optimizer_conf)
+        self.scheduler = get_scheduler(self.optimizer, **scheduler_conf)
 
     def update(self) -> None:
         self.optimizer.zero_grad()
@@ -66,23 +53,9 @@ class BigStep(PHOptimization):
                  lr: float=1e-1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
         super().__init__(X, loss_obj, reg_obj, reg_proj)
 
-        # optimizer
-        if optimizer_conf is None:
-            optimizer_conf = {"name": "SGD"}
-        optimizer_name = optimizer_conf.get("name", "SGD")
-        if optimizer_name == "SGD":
-            self.optimizer = torch.optim.SGD([self.X], lr=lr)
-        elif optimizer_name == "Adam":
-            self.optimizer = torch.optim.Adam([self.X], lr=lr)
-
-        # scheduler
-        if scheduler_conf is None:
-            scheduler_conf = {"name": "const"}
-        scheduler_name = scheduler_conf.get("name", "const")
-        if scheduler_name == "const":
-            self.scheduler = None
-        elif scheduler_name == "TransformerLR":
-            self.scheduler = TransformerLR(self.optimizer, warmup_epochs=scheduler_conf.get("warmup_epochs", 100))
+        # get optimizer and scheduler
+        self.optimizer = get_optimizer([self.X], lr=lr, **optimizer_conf)
+        self.scheduler = get_scheduler(self.optimizer, **scheduler_conf)
 
     def update(self) -> None:
         self.optimizer.zero_grad()
@@ -178,23 +151,9 @@ class Diffeo(PHOptimization):
                  lr: float=1e-1, sigma: float=0.1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
         super().__init__(X, loss_obj, reg_obj, reg_proj)
 
-        # optimizer
-        if optimizer_conf is None:
-            optimizer_conf = {"name": "SGD"}
-        optimizer_name = optimizer_conf.get("name", "SGD")
-        if optimizer_name == "SGD":
-            self.optimizer = torch.optim.SGD([self.X], lr=lr)
-        elif optimizer_name == "Adam":
-            self.optimizer = torch.optim.Adam([self.X], lr=lr)
-
-        # scheduler
-        if scheduler_conf is None:
-            scheduler_conf = {"name": "const"}
-        scheduler_name = scheduler_conf.get("name", "const")
-        if scheduler_name == "const":
-            self.scheduler = None
-        elif scheduler_name == "TransformerLR":
-            self.scheduler = TransformerLR(self.optimizer, warmup_epochs=scheduler_conf.get("warmup_epochs", 100))
+        # get optimizer and scheduler
+        self.optimizer = get_optimizer([self.X], lr=lr, **optimizer_conf)
+        self.scheduler = get_scheduler(self.optimizer, **scheduler_conf)
 
         # unique parameter
         self.sigma = sigma # the standard deviation of the Gaussian kernel

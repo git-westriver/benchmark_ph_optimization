@@ -1,4 +1,24 @@
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim import Optimizer
+
+def get_scheduler(optimizer: Optimizer, name: str="const", **kwargs):
+    """
+    Get the scheduler.
+
+    Parameters:
+        optimizer(torch.optim.Optimizer): optimizer.
+        name(str, default="const"): name of the scheduler.
+        kwargs: other arguments for the scheduler.
+
+    Returns:
+        scheduler(torch.optim.lr_scheduler._LRScheduler): scheduler.
+    """
+    if name == "const":
+        return None
+    elif name == "TransformerLR":
+        return TransformerLR(optimizer, **kwargs)
+    else:
+        raise ValueError(f"Scheduler {name} is not supported.")
 
 class TransformerLR(_LRScheduler):
     """TransformerLR class for adjustment of learning rate.
