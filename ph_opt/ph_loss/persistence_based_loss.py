@@ -61,15 +61,16 @@ class PersistenceBasedLoss:
         This function is used in BigStep and Continuation.
         Note that when implementing this method, you need to apply the get_rph decorator.
         
-        Parameters:
-            - X(torch.Tensor): point cloud. shape=(# of points, dim)
-            - rph(Optional[RipsPH]): if not `None`, the persistent homology is computed in advance.
+        Args:
+            X(torch.Tensor): point cloud. shape=(# of points, dim)
+            rph(Optional[RipsPH]): if not `None`, the persistent homology is computed in advance.
 
-        Returns:  list of tuples. The `i`-th tuple corresponds to `dim_list[i]`-dimensional persistent homology. 
-        Each tuple contains:
-            - dim(int): equal to `dim_list[i]`
-            - list of `Bar` (can be obtained through `RipsPH.get_bar_object_list`): the bars to move
-            - direction to move (torch.Tensor)
+        Returns:  
+            list[tuple]: the `i`-th tuple corresponds to `dim_list[i]`-dimensional persistent homology. 
+            Each tuple contains:
+                - dim(int): equal to `dim_list[i]`
+                - list of `Bar` (can be obtained through `RipsPH.get_bar_object_list`): the bars to move
+                - direction to move (torch.Tensor)
         """
         raise NotImplementedError
 
@@ -156,12 +157,15 @@ class ExpandLoss(PersistenceBasedLoss):
         ret: list[tuple[int, Bar, torch.Tensor]] = []
         for dim in self.dim_list:
             bar_list = rph.get_bar_object_list(dim)
+
             # filter bars by eps and topk
             bar_list = [bar for bar in bar_list if bar.death_time - bar.birth_time > self.eps]
             if self.topk is not None:
                 bar_list = sorted(bar_list, key=lambda bar: bar.death_time - bar.birth_time, reverse=True)[:self.topk]
+            
             # specify the direction for target bars
             direction = torch.tensor([[-1., 1.] for _ in range(len(bar_list))])
+
             # add to the return value
             ret.append((dim, bar_list, direction))
         return ret

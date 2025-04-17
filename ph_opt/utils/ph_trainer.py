@@ -7,7 +7,6 @@ import time
 from itertools import accumulate
 import pickle
 from matplotlib import pyplot as plt
-import matplotlib.animation as animation
 from pathlib import Path
 import torch
 import numpy as np
@@ -100,6 +99,8 @@ class PHTrainer:
         self.config = config
         self.scatter_config = scatter_config
 
+        self.save_dirpath =Path(config.save_dirpath) / self.config.exp_name if self.config.exp_name != "" else Path(self.save_dirpath)
+
     def train(self):
         # Create a directory if it does not exist
         self._maybe_create_dir()
@@ -130,7 +131,7 @@ class PHTrainer:
             # For the first trial, save X_history and create a gif
             if trial == 0:
                 # save X_history
-                with open(self.config.save_dirpath / "X_history.pkl", "wb") as f:
+                with open(self.save_dirpath / "X_history.pkl", "wb") as f:
                     pickle.dump(X_history, f)
 
                 # create a gif
@@ -139,7 +140,7 @@ class PHTrainer:
                                     title_list=[self.config.method], 
                                     vertical=False, 
                                     scatter_config=self.scatter_config)
-                anim.save(self.config.save_dirpath / "trajectory.gif", writer='pillow')
+                anim.save(self.save_dirpath / "trajectory.gif", writer='pillow')
 
             # Finish the trial
             print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)
@@ -149,13 +150,12 @@ class PHTrainer:
             "loss_history": loss_history_list,
             "time_history": time_history_list,
         }
-        with open(self.config.save_dirpath / "result_dict.pkl", "wb") as f:
+        with open(self.save_dirpath / "result_dict.pkl", "wb") as f:
             pickle.dump(result_dict, f)
     
     def _maybe_create_dir(self):
-        save_dirpath = Path(self.config.save_dirpath) / self.config.exp_name if self.config.exp_name != "" else Path(self.config.save_dirpath)
-        if not os.path.exists(save_dirpath):
-            os.makedirs(save_dirpath)
+        if not os.path.exists(self.save_dirpath):
+            os.makedirs(self.save_dirpath)
 
     def read_data(self):
         if callable(self.config.data_source):
@@ -235,7 +235,7 @@ class PHTrainer:
                 ax.scatter(np.arange(len(loss_history_list[trial])), loss_history_list[trial], color="blue", alpha=0.3)
             ax.set_xlabel("epoch")
             ax.set_ylabel("loss")
-            fig.savefig(self.config.save_dirpath / "epoch-loss.png")
+            fig.savefig(self.save_dirpath / "epoch-loss.png")
         else:
             # Then, mean and std of the loss over trials
             loss_history_mat = np.stack(loss_history_list, axis=0) # (num_trial, num_epoch+1)
@@ -247,7 +247,7 @@ class PHTrainer:
             ax.fill_between(np.arange(loss_mean.shape[0]), loss_mean - loss_std, loss_mean + loss_std, color="blue", alpha=0.3)
             ax.set_xlabel("epoch")
             ax.set_ylabel("loss")
-            fig.savefig(self.config.save_dirpath /"epoch-loss.png")
+            fig.savefig(self.save_dirpath /"epoch-loss.png")
 
         ## visualization of the transition of the loss over time ##
         if self.config.time_limit is None: 
@@ -258,7 +258,7 @@ class PHTrainer:
                 ax.scatter(time_history_list[trial], loss_history_list[trial], color="blue", alpha=0.3)
             ax.set_xlabel("time")
             ax.set_ylabel("loss")
-            fig.savefig(f"{self.config.save_dirpath}/time-loss.png")
+            fig.savefig(f"{self.save_dirpath}/time-loss.png")
         else: 
             # Then, mean and std of the loss over trials
             time_linspace = np.linspace(0, self.config.time_limit, 101)
@@ -280,4 +280,4 @@ class PHTrainer:
             ax.fill_between(time_linspace, time_loss_mean - time_loss_std, time_loss_mean + time_loss_std, color="blue", alpha=0.3)
             ax.set_xlabel("time")
             ax.set_ylabel("loss")
-            fig.savefig(self.config.save_dirpath / "time-loss.png")
+            fig.savefig(self.save_dirpath / "time-loss.png")

@@ -1,4 +1,4 @@
-from ph_opt import PHTrainerConfig, ph_trainer
+from ph_opt import PHTrainerConfig, PHTrainer
 
 if __name__ == "__main__":
     method_list = ["gd", "continuation", "bigstep", "diffeo"]
@@ -6,4 +6,5 @@ if __name__ == "__main__":
     for method in method_list:
         for lr in lr_list:
             config = PHTrainerConfig(exp_name=f"{method}_lr={lr:.3f}", method=method, lr=lr, num_epoch=100)
-            ph_trainer(config)
+            pht = PHTrainer(config)
+            pht.train()

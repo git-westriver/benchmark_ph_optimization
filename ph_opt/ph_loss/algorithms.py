@@ -108,7 +108,6 @@ class BigStep(PHOptimization):
                 b_direc, d_direc = direction[i]
                 b_target, d_target = bar_list[i].birth_time + b_direc, bar_list[i].death_time + d_direc
                 if b_direc > 0: # increase birth
-                    print(dim, b_simp, d_simp)
                     for simp in rph.W[dim][b_simp]:
                         if simp in high_target_value[dim]:
                             high_target_value[dim][simp] = max(b_target, high_target_value[dim][simp])
@@ -263,22 +262,23 @@ class Continuation(PHOptimization):
             return X
         
         # compute \phi(x, y) = Pers(\Phi(x)) - y and its jacobian matrix
-        phi: list[torch.Tensor] = []
+        phi: list[torch.Tensor] = [] # represents the value `current - target`
         _jacobi: list[torch.Tensor] = []
         for i in range(len(bar_list)):
             bv1, bv2, dv1, dv2 = bar_list[i].birth_v1, bar_list[i].birth_v2, bar_list[i].death_v1, bar_list[i].death_v2
             b_direction, d_direction = direction[i]
 
-            # gradient of b_time - b_target w.t.t X = gradient of b_time w.t.t X (one element of the jacobian matrix)
+            # gradient of b_time - b_target w.r.t X = gradient of b_time w.r.t X (one element of the jacobian matrix)
             b_time: torch.Tensor = torch.norm(X[bv1] - X[bv2])
             _jacobi.append(torch.autograd.grad(b_time, X)[0])
 
-            # gradient of d_time - d_target w.t.t X = gradient of d_time w.t.t X (one element of the jacobian matrix)
+            # gradient of d_time - d_target w.r.t X = gradient of d_time w.r.t X (one element of the jacobian matrix)
             d_time: torch.Tensor = torch.norm(X[dv1] - X[dv2])
             _jacobi.append(torch.autograd.grad(d_time, X)[0])
 
             # contain the value of Pers(\Phi(x)) - y in phi
-            phi.append(-b_direction); phi.append(-d_direction) # NOTE: `phi` represents the value `current - target`
+            phi.append(-b_direction)
+            phi.append(-d_direction)
 
         phi_tensor: torch.Tensor = torch.stack(phi, dim=0).detach() # (2 * num_pairs)
         jacobi: torch.Tensor = torch.stack(_jacobi, dim=0) # (2 * num_pairs) x num_pts x pts_dim

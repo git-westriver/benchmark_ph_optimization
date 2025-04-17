@@ -74,7 +74,7 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
         high = get_max_death_of_pds(pds)
 
     # get maximum dimension
-    max_dim = max([max([bar[0] for bar in pd]) for pd in pds])
+    max_dim = max([max([bar[0] for bar in pd] + [0]) for pd in pds])
 
     # get colormap
     pd_colormap = list(plt.cm.Set1.colors)
