@@ -60,15 +60,15 @@ class PHTrainerConfig:
     log_interval: int = 10
 
     ### LOSS FUNCTION ###
-    loss_obj: PersistenceBasedLoss = ExpandLoss([1], 1, topk=1)
-    regularization_obj: Optional[Regularization] = RectangleRegularization(-2., -2., 2., 2., 1., 2)
+    loss_obj: PersistenceBasedLoss | Callable
+    regularization_obj: Optional[Regularization] = None
 
     ### METHOD ###
     method: str = "gd" # "gd", "bigstep", "continuation", "diffeo"
     lr: float = 1e-1
     reg_proj: bool = False
-    optimizer_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
-    scheduler_conf: dict = dataclasses.field(default_factory=dict) # for gd and bigstep
+    optimizer_conf: dict = dataclasses.field(default_factory=dict)
+    scheduler_conf: dict = dataclasses.field(default_factory=dict)
     num_in_iter: int = 1 # for continuation
     
     def __post_init__(self):
