@@ -10,14 +10,16 @@ from matplotlib import pyplot as plt
 from pathlib import Path
 import torch
 import numpy as np
+from functools import partial
 
 from ph_opt import (
-    PersistenceBasedLoss, ExpandLoss, 
-    Regularization, RectangleRegularization,
+    PersistenceBasedLoss, Regularization,
     PHOptimization, GradientDescent, BigStep, Continuation, Diffeo, 
     get_animation
 )
 from ph_opt.data import circle_with_one_outlier, get_data
+from ph_opt.optimizer import get_optimizer
+from ph_opt.scheduler import get_scheduler
 
 @dataclasses.dataclass
 class PHTrainerConfig:
@@ -49,6 +51,10 @@ class PHTrainerConfig:
                 - "name"(str, default="const"): Name of the scheduler. You can choose from "const" and "TransformerLR".
             - num_in_iter(int, default=1): Number of iterations in the continuation method.
     """
+    ### LOSS FUNCTION ###
+    loss_obj: PersistenceBasedLoss | Callable
+    regularization_obj: Optional[Regularization] = None
+
     ### COMMON SETTINGS ###
     exp_name: str = ""
     save_dirpath: str | Path = f"tmp/"
@@ -58,10 +64,6 @@ class PHTrainerConfig:
     num_epoch: Optional[int] = None
     time_limit: Optional[float] = None
     log_interval: int = 10
-
-    ### LOSS FUNCTION ###
-    loss_obj: PersistenceBasedLoss | Callable
-    regularization_obj: Optional[Regularization] = None
 
     ### METHOD ###
     method: str = "gd" # "gd", "bigstep", "continuation", "diffeo"
@@ -82,8 +84,10 @@ class PHTrainerConfig:
     def print(self):
         print("===== Configuration =====")
         for k, v in self.__dict__.items():
-            if k in ["loss_obj", "regularization_obj"]:
+            if isinstance(v, PersistenceBasedLoss) or isinstance(v, Regularization):
                 print(f"{k}: {v.__class__.__name__}")
+            elif isinstance(v, partial):
+                print(f"{k}: {v.func.__name__}({', '.join([f'{k}={v}' for k, v in v.keywords.items()])})")
             elif callable(v):
                 print(f"{k}: {v.__name__}")
             else:
@@ -91,13 +95,18 @@ class PHTrainerConfig:
         sys.stdout.flush()
 
 class PHTrainer:
-    def __init__(self, config: Optional[PHTrainerConfig] = None, scatter_config: Optional[dict] = None):
+    def __init__(self, config: Optional[PHTrainerConfig] = None, scatter_config: Optional[dict] = None, viz_dims: Optional[list[int]] = None):
         if config is None:
             config = PHTrainerConfig()
         config.print()
 
         self.config = config
         self.scatter_config = scatter_config
+
+        if viz_dims is None:
+            self.viz_dims = config.loss_obj.dim_list
+        else:
+            self.viz_dims = viz_dims
 
         self.save_dirpath =Path(config.save_dirpath) / self.config.exp_name if self.config.exp_name != "" else Path(self.save_dirpath)
 
@@ -118,11 +127,23 @@ class PHTrainer:
             # Initialize the variable
             X = self.initialize_variable(dataset, trial)
 
-            # Initialize the optimization method
-            poh = self.initialize_method(X)
+            if isinstance(self.config.loss_obj, PersistenceBasedLoss):
+                # initialize the optimization method
+                poh = self.initialize_method(X)
             
-            # Optimization
-            X_history, loss_history, time_history = self.run_optimization(poh)
+                # Optimization
+                X_history, loss_history, time_history = self.optimize_persistence_based_loss(poh)
+
+            elif isinstance(self.config.loss_obj, Callable):
+                # Initialize the optimization method
+                _method = self.config.method if self.config.method != "gd" else "standard"
+                loss_func = partial(self.config.loss_obj, grad_type=_method)
+
+                # Optimization
+                X_history, loss_history, time_history = self.optimize_with_gradient_based_interface(loss_func, X)
+
+            else:
+                raise ValueError("loss_obj must be a PersistenceBasedLoss or Callable.")
 
             # add loss_history, time_history to the list
             loss_history_list.append(loss_history)
@@ -136,10 +157,10 @@ class PHTrainer:
 
                 # create a gif
                 anim = get_animation([X_history], [[loss_history]], 
-                                    dim_list=self.config.loss_obj.dim_list,
-                                    title_list=[self.config.method], 
-                                    vertical=False, 
-                                    scatter_config=self.scatter_config)
+                                     dim_list=self.viz_dims,
+                                     title_list=[self.config.method], 
+                                     vertical=False, 
+                                     scatter_config=self.scatter_config)
                 anim.save(self.save_dirpath / "trajectory.gif", writer='pillow')
 
             # Finish the trial
@@ -192,7 +213,7 @@ class PHTrainer:
             raise NotImplementedError
         return poh
     
-    def run_optimization(self, poh: PHOptimization) -> tuple[list[torch.Tensor], list[float], list[float]]:
+    def optimize_persistence_based_loss(self, poh: PHOptimization) -> tuple[list[torch.Tensor], list[float], list[float]]:
         X_history = []
         loss_history = []
         time_history = [0]
@@ -218,6 +239,54 @@ class PHTrainer:
         loss = poh.get_loss()
         loss_history.append(loss.item())
         X_history.append(poh.X.detach().clone())
+        print(f"Final loss: {loss.item()}", flush=True)
+
+        # convert time_history to cumulative time
+        time_history = list(accumulate(time_history))
+
+        return X_history, loss_history, time_history
+    
+    def optimize_with_gradient_based_interface(self, loss_func: Callable, X: torch.Tensor) -> tuple[list[torch.Tensor], list[float], list[float]]:
+        # Initialize optimizer and scheduler
+        optimizer = get_optimizer([X], self.config.lr, **self.config.optimizer_conf)
+        scheduler = get_scheduler(optimizer, **self.config.scheduler_conf)
+
+        # Initialize some variables
+        X_history = []
+        loss_history = []
+        time_history = [0]
+        epoch = -1
+        elapsed_time = 0
+
+        # Optimization
+        while ((self.config.num_epoch is not None and epoch < self.config.num_epoch - 1)
+                or (self.config.time_limit is not None and elapsed_time < self.config.time_limit)):
+            epoch += 1
+            elapsed_time += time_history[-1]
+
+            # record the current X
+            X_history.append(X.detach().clone())
+
+            # reset the gradient
+            optimizer.zero_grad()
+
+            # compute the loss and update the variables
+            start = time.time()
+            loss = loss_func(X)
+            loss.backward()
+            optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
+            time_history.append(time.time() - start)
+
+            # record loss and output it to the console
+            loss_history.append(loss.item())
+            if epoch % self.config.log_interval == 0:
+                print(f"epoch: {epoch}, loss: {loss.item()}", flush=True)
+            
+        loss = loss_func(X)
+        loss_history.append(loss.item())
+        X_history.append(X.detach().clone())
         print(f"Final loss: {loss.item()}", flush=True)
 
         # convert time_history to cumulative time

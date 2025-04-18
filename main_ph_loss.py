@@ -2,7 +2,7 @@ from ph_opt import PHTrainerConfig, PHTrainer, ExpandLoss, RectangleRegularizati
 
 if __name__ == "__main__":
     loss_obj = ExpandLoss([1], 1, topk=1)
-    regularization_obj = RectangleRegularization([1], 1, topk=1)
+    regularization_obj = RectangleRegularization(-2., -2., 2., 2., 1., 2)
     
     method_list = ["gd", "continuation", "bigstep", "diffeo"]
     lr_list = [(4**i) * 1e-3 for i in range(6)]

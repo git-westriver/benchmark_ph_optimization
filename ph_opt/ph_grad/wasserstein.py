@@ -3,6 +3,7 @@ from ..ph_compute.ph_computation_library import RipsPH, Bar
 import torch
 from torch.autograd import Function
 from gudhi.wasserstein import wasserstein_distance
+from typing import Optional
 
 def _powered_wasserstein_distance_from_rph(rph: RipsPH, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2):
     # get the barcode
@@ -11,8 +12,8 @@ def _powered_wasserstein_distance_from_rph(rph: RipsPH, ref_pd: list[torch.Tenso
     # compute the loss
     loss = torch.tensor(0.)
     for dim_idx, dim in enumerate(dims):
-        loss += wasserstein_distance(differentiable_barcode[dim], ref_pd[dim_idx], 
-                                     order=order, enable_autodiff=True, keep_essential_parts=False) ** 2
+        loss += wasserstein_distance(differentiable_barcode[dim_idx], ref_pd[dim_idx], 
+                                     order=order, enable_autodiff=True, keep_essential_parts=False) ** order
         
     return loss
 
@@ -42,7 +43,11 @@ def _get_standard_gradient(X: torch.Tensor, rph: RipsPH, ref_pd: list[torch.Tens
     with torch.enable_grad():
         _X = X.detach().clone().requires_grad_()
         _loss = _powered_wasserstein_distance_one_sided(_X, ref_pd, dims, order, distance_matrix)
-    standard_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
+    
+    if _loss.requires_grad:
+        standard_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
+    else:
+        standard_df_dX = torch.zeros_like(_X)
 
     return standard_df_dX
 
@@ -160,6 +165,9 @@ class _powered_wasserstein_distance_one_sided_with_bigstep_grad(Function):
                 df_dD[v1, v2] += diam - target_value
                 df_dD[v2, v1] += diam - target_value
 
+        # delete rph since it is no longer needed
+        del rph
+
         # normalize the gradient to have the same norm as the standard gradient
         standard_df_dD_norm = standard_df_dD.norm()
         df_dD_norm = df_dD.norm()
@@ -222,6 +230,15 @@ class _powered_wasserstein_distance_one_sided_with_continuation_grad(Function):
         # get the directions of the bars to move
         direction_info = _get_direction_for_wasserstein(rph, ref_pd, dims, order)
 
+        # delete rph since it is no longer needed
+        del rph
+
+        # if direction_info is empty, return zeros
+        if not direction_info:
+            # no bars to move
+            dF_dX = torch.zeros_like(X)
+            return dF_dX, None, None, None
+
         # compute \phi(X, ref_pd) = Pers(\Phi(X)) - ref_pd and its jacobian matrix
         phi: list[torch.Tensor] = []
         _jacobi: list[torch.Tensor] = []
@@ -231,16 +248,17 @@ class _powered_wasserstein_distance_one_sided_with_continuation_grad(Function):
             b_direc, d_direc = direction
 
             # append the values of \phi(X, ref_pd) (i.e., - b_direc, - d_direc for the birth and death, respectively)
-            phi.append(b_direc)
-            phi.append(d_direc)
+            phi.append(- b_direc)
+            phi.append(- d_direc)
 
-            # compute d(b_time - b_target) / dX = d(b_time) / dX and append it to _jacobi
-            b_time: torch.Tensor = torch.norm(X[bv1] - X[bv2])
-            _jacobi.append(torch.autograd.grad(b_time, X)[0])
+            with torch.enable_grad():
+                # compute d(b_time - b_target) / dX = d(b_time) / dX and append it to _jacobi
+                b_time: torch.Tensor = torch.norm(X[bv1] - X[bv2])
+                _jacobi.append(torch.autograd.grad(b_time, X)[0])
 
-            # compute d(d_time - d_target) / dX = d(d_time) / dX and append it to _jacobi
-            d_time: torch.Tensor = torch.norm(X[dv1] - X[dv2])
-            _jacobi.append(torch.autograd.grad(d_time, X)[0])
+                # compute d(d_time - d_target) / dX = d(d_time) / dX and append it to _jacobi
+                d_time: torch.Tensor = torch.norm(X[dv1] - X[dv2])
+                _jacobi.append(torch.autograd.grad(d_time, X)[0])
 
         # get phi and jacobi as torch.Tensor
         phi = torch.stack(phi, dim=0).detach() # (2 * #pairs,)
@@ -280,8 +298,12 @@ def powered_wasserstein_distance_one_sided_with_continuation_grad(X: torch.Tenso
 
 class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
     @staticmethod
-    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, sigma: float = 0.1):
-        ctx.save_for_backward(X)
+    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
+        if all_X is not None:
+            ctx.save_for_backward(X, all_X)
+        else:
+            ctx.save_for_backward(X)
+
         ctx.ref_pd, ctx.dims, ctx.order, ctx.sigma = ref_pd, dims, order, sigma
 
         # get rph and the loss
@@ -293,10 +315,17 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         return loss
     
     @staticmethod
-    def backward(ctx, dF_df): # F: whole network, f: output of this function, X: input point cloud
+    def backward(ctx, dF_df): # F: whole network, f: output of this function, X: **all_X**
         # retrieve the saved tensors
         X: torch.Tensor
-        X, = ctx.saved_tensors
+        all_X: torch.Tensor
+        if len(ctx.saved_tensors) == 2:
+            X, all_X = ctx.saved_tensors
+            all_X_provided = True
+        else:
+            X, = ctx.saved_tensors
+            all_X = X
+            all_X_provided = False
 
         # retrieve the saved context
         ref_pd: list[torch.Tensor]
@@ -313,13 +342,17 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         num_pts, pts_dim = X.size()
         nonzero_grad_idx = [idx for idx in range(num_pts) if standard_df_dX[idx, :].norm() > 0]
         nonzero_grad_X = X[nonzero_grad_idx, :]
+        print(X.size(), all_X.size(), nonzero_grad_X.size(), 2 * sigma ** 2, 
+              torch.cdist(nonzero_grad_X, nonzero_grad_X).size(), 
+              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)).min(), 
+              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)).max())
         a_vec = torch.cat([standard_df_dX[i, :] for i in nonzero_grad_idx], dim=0) # corresponds to `a` in the paper
         _K_mat = torch.exp(- torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)) # the Gaussian kernel matrix
         K_mat = torch.kron(_K_mat, torch.eye(pts_dim)) # corresponds to `K` in the paper
         _alpha: torch.Tensor = torch.linalg.solve(K_mat, a_vec)
         alpha = _alpha.view(len(nonzero_grad_idx), pts_dim) # corresponds to `alpha` in the paper
-        rho_mat = torch.exp(- torch.cdist(X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)) # shape = (num_pts, num_nonzero_grad_pts)
-        df_dX = torch.matmul(rho_mat, alpha) # "ij,jk->ik", shape = (num_pts, pts_dim)
+        rho_mat = torch.exp(- torch.cdist(all_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)) # shape = (num_all_pts, num_nonzero_grad_pts)
+        df_dX = torch.matmul(rho_mat, alpha) # "ij,jk->ik", shape = (num_all_pts, pts_dim)
 
         # normalize the gradient to have the same norm as the standard gradient
         standard_df_dX_norm = standard_df_dX.norm()
@@ -331,10 +364,13 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         # compute dF_dX
         dF_dX = dF_df * df_dX
         
-        return dF_dX, None, None, None, None 
+        if all_X_provided:
+            return None, None, None, None, None, dF_dX
+        else:
+            return dF_dX, None, None, None, None, None
     
 def powered_wasserstein_distance_one_sided_with_diffeo_grad(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int],
-                                                            order: int = 2, sigma: float = 0.1):
+                                                            order: int = 2, sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
     """
     Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
     with improved gradient using diffeomorphic interpolation.
@@ -349,25 +385,25 @@ def powered_wasserstein_distance_one_sided_with_diffeo_grad(X: torch.Tensor, ref
     Returns:
         loss (torch.Tensor) : the Wasserstein distance.
     """
-    return _powered_wasserstein_distance_one_sided_with_diffeo_grad.apply(X, ref_pd, dims, order, sigma)
+    return _powered_wasserstein_distance_one_sided_with_diffeo_grad.apply(X, ref_pd, dims, order, sigma, all_X)
 
 def powered_wasserstein_distance_one_sided_with_improved_grad(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
-                                                              grad_type: str = "standard", sigma: float = 0.1):
+                                                              grad_type: str = "standard", sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
     """
     Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
     with improved gradient using specialized method.
 
     Parameters:
-        - X (torch.Tensor) : point cloud. shape=(# of points, dim)
-        - ref_pd (list[torch.Tensor]) : the reference persistent diagram. shape=(#bars, 2)
-        - dims (list[int]) : list of dimensions of the persistent homology.
-        - order (int) : the order of Wasserstein distance.
-        - grad_type (str) : the method to compute the gradient. 
-            One of ['standard', 'bigstep', 'continuation', 'diffeo'].
-        - sigma (float) : the bandwidth of the Gaussian kernel. Only used when `method` is 'diffeo'.
+        X (torch.Tensor) : point cloud. shape=(# of points, dim)
+        ref_pd (list[torch.Tensor]) : the reference persistent diagram. shape=(#bars, 2)
+        dims (list[int]) : list of dimensions of the persistent homology.
+        order (int) : the order of Wasserstein distance.
+        grad_type (str) : the method to compute the gradient. One of ['standard', 'bigstep', 'continuation', 'diffeo'].
+        sigma (float) : the bandwidth of the Gaussian kernel. Only used when `method` is 'diffeo'.
+        all_X (torch.Tensor) : the point cloud for diffeomorphic interpolation. shape=(# of points, dim). Only used when `method` is 'diffeo' and `all_X` is not `None`.
         
     Returns:
-        - loss: the Wasserstein distance.
+        loss: the Wasserstein distance.
     """
 
     if grad_type == 'standard':
@@ -377,7 +413,7 @@ def powered_wasserstein_distance_one_sided_with_improved_grad(X: torch.Tensor, r
     elif grad_type == 'continuation':
         loss = powered_wasserstein_distance_one_sided_with_continuation_grad(X, ref_pd, dims, order)
     elif grad_type == 'diffeo':
-        loss = powered_wasserstein_distance_one_sided_with_diffeo_grad(X, ref_pd, dims, order, sigma)
+        loss = powered_wasserstein_distance_one_sided_with_diffeo_grad(X, ref_pd, dims, order, sigma, all_X)
     else:
         raise ValueError(f"Unknown grad_type: {grad_type}. Must be one of ['standard', 'bigstep', 'continuation', 'diffeo'].")
     

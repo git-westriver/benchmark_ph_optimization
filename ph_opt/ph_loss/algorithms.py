@@ -182,7 +182,7 @@ class Diffeo(PHOptimization):
 
         # obtain auxiliary loss based on the new gradient
         self.optimizer.zero_grad()
-        target_X = self.X.detach() -  new_grad
+        target_X = self.X.detach() - new_grad
         aux_loss = (torch.norm(target_X - self.X) ** 2) * gen_grad_norm / (2 * torch.norm(new_grad))
 
         # add the regularization, compute the gradient, and update the parameters
