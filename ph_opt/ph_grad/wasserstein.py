@@ -338,14 +338,19 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         # compute the standard gradient
         standard_df_dX = _get_standard_gradient(X, rph, ref_pd, dims, order)
 
+        # no gradient if the standard gradient is zero
+        if standard_df_dX.norm() == 0:
+            if all_X_provided:
+                dF_dX = torch.zeros_like(all_X)
+                return None, None, None, None, None, dF_dX
+            else:
+                dF_dX = torch.zeros_like(X)
+                return dF_dX, None, None, None, None, None
+
         # compute the new gradient using diffeomorphic interpolation
         num_pts, pts_dim = X.size()
         nonzero_grad_idx = [idx for idx in range(num_pts) if standard_df_dX[idx, :].norm() > 0]
         nonzero_grad_X = X[nonzero_grad_idx, :]
-        print(X.size(), all_X.size(), nonzero_grad_X.size(), 2 * sigma ** 2, 
-              torch.cdist(nonzero_grad_X, nonzero_grad_X).size(), 
-              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)).min(), 
-              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)).max())
         a_vec = torch.cat([standard_df_dX[i, :] for i in nonzero_grad_idx], dim=0) # corresponds to `a` in the paper
         _K_mat = torch.exp(- torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * sigma ** 2)) # the Gaussian kernel matrix
         K_mat = torch.kron(_K_mat, torch.eye(pts_dim)) # corresponds to `K` in the paper

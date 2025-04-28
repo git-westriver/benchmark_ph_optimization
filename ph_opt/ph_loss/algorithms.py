@@ -172,6 +172,10 @@ class Diffeo(PHOptimization):
         # compute the new gradient using diffeomorphic interpolation
         nonzero_grad_idx = [idx for idx in range(self.num_pts) if gen_grad[idx, :].norm() > 0]
         nonzero_grad_X = self.X[nonzero_grad_idx, :]
+        print(self.X.size(), nonzero_grad_X.size(), 2 * self.sigma ** 2, 
+              torch.cdist(nonzero_grad_X, nonzero_grad_X).size(), 
+              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)).min(), 
+              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)).max())
         a_vec = torch.cat([gen_grad[i, :] for i in nonzero_grad_idx], dim=0) # corresponds to `a` in the paper
         _K_mat = torch.exp(- torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)) # the Gaussian kernel matrix
         K_mat = torch.kron(_K_mat, torch.eye(self.X.shape[1])) # corresponds to `K` in the paper

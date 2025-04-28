@@ -4,7 +4,7 @@ if __name__ == "__main__":
     loss_obj = ExpandLoss([1], 1, topk=1)
     regularization_obj = RectangleRegularization(-2., -2., 2., 2., 1., 2)
     
-    method_list = ["gd", "continuation", "bigstep", "diffeo"]
+    method_list = ["diffeo"] # ["gd", "continuation", "bigstep", "diffeo"]
     lr_list = [(4**i) * 1e-3 for i in range(6)]
     for method in method_list:
         for lr in lr_list:
