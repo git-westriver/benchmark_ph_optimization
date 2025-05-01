@@ -38,7 +38,7 @@ def _powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.
     _, loss = _get_rph_and_powered_wasserstein_distance_one_sided(X, ref_pd, dims, order, distance_matrix)
     return loss
 
-def _get_standard_gradient(X: torch.Tensor, rph: RipsPH, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
+def _get_standard_gradient(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
                            distance_matrix: bool = False):
     with torch.enable_grad():
         _X = X.detach().clone().requires_grad_()
@@ -103,7 +103,7 @@ class _powered_wasserstein_distance_one_sided_with_bigstep_grad(Function):
         direction_info = _get_direction_for_wasserstein(rph, ref_pd, dims, order)
 
         # compute the standard gradient
-        standard_df_dD = _get_standard_gradient(dist_mat, rph, ref_pd, dims, order, distance_matrix=True)
+        standard_df_dD = _get_standard_gradient(dist_mat, ref_pd, dims, order, distance_matrix=True)
 
         # compute the target value for each simplex
         maxdim = max(dims)
@@ -225,7 +225,7 @@ class _powered_wasserstein_distance_one_sided_with_continuation_grad(Function):
         ref_pd, dims, order, rph = ctx.ref_pd, ctx.dims, ctx.order, ctx.rph
 
         # compute the standard gradient
-        standard_df_dX = _get_standard_gradient(X, rph, ref_pd, dims, order)
+        standard_df_dX = _get_standard_gradient(X, ref_pd, dims, order)
 
         # get the directions of the bars to move
         direction_info = _get_direction_for_wasserstein(rph, ref_pd, dims, order)
@@ -298,7 +298,8 @@ def powered_wasserstein_distance_one_sided_with_continuation_grad(X: torch.Tenso
 
 class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
     @staticmethod
-    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
+    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
+                sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
         if all_X is not None:
             ctx.save_for_backward(X, all_X)
         else:
@@ -319,13 +320,12 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         # retrieve the saved tensors
         X: torch.Tensor
         all_X: torch.Tensor
-        if len(ctx.saved_tensors) == 2:
+        all_X_provided = (len(ctx.saved_tensors) == 2)
+        if all_X_provided:
             X, all_X = ctx.saved_tensors
-            all_X_provided = True
         else:
             X, = ctx.saved_tensors
             all_X = X
-            all_X_provided = False
 
         # retrieve the saved context
         ref_pd: list[torch.Tensor]
@@ -336,7 +336,7 @@ class _powered_wasserstein_distance_one_sided_with_diffeo_grad(Function):
         ref_pd, dims, order, sigma, rph = ctx.ref_pd, ctx.dims, ctx.order, ctx.sigma, ctx.rph
 
         # compute the standard gradient
-        standard_df_dX = _get_standard_gradient(X, rph, ref_pd, dims, order)
+        standard_df_dX = _get_standard_gradient(X, ref_pd, dims, order)
 
         # no gradient if the standard gradient is zero
         if standard_df_dX.norm() == 0:
@@ -392,8 +392,8 @@ def powered_wasserstein_distance_one_sided_with_diffeo_grad(X: torch.Tensor, ref
     """
     return _powered_wasserstein_distance_one_sided_with_diffeo_grad.apply(X, ref_pd, dims, order, sigma, all_X)
 
-def powered_wasserstein_distance_one_sided_with_improved_grad(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
-                                                              grad_type: str = "standard", sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
+def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
+                                           grad_type: str = "standard", sigma: float = 0.1, all_X: Optional[torch.Tensor] = None):
     """
     Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
     with improved gradient using specialized method.

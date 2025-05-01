@@ -46,6 +46,7 @@ class RipsPH(RipsPersistentHomology):
         num_threads (int, default=1) : the number of threads to use.
     """
     def __init__(self, X: Union[torch.Tensor, np.ndarray], maxdim, distance_matrix=False, num_threads=1):
+        # register dist_mat
         if distance_matrix and type(X).__module__ == "numpy":
             self.dist_mat = X.copy()
         elif distance_matrix and type(X).__module__ == "torch":
@@ -54,10 +55,13 @@ class RipsPH(RipsPersistentHomology):
             self.dist_mat = torch.cdist(X, X)
         else:
             self.dist_mat = cdist(X, X)
+
+        # make list of dist_mat
         if type(self.dist_mat).__module__ in ["numpy", "torch"]:
             _dist_mat = self.dist_mat.tolist()
         else:
             _dist_mat = self.dist_mat
+
         super().__init__(_dist_mat, maxdim, num_threads)
         self.maxdim: int = maxdim
         self.get_ph_left: bool = False
@@ -93,15 +97,20 @@ class RipsPH(RipsPersistentHomology):
         """
         barcode = []
         if (not self.get_ph_left) and (not self.get_ph_right):
+            # call giotto_ph
             if self.giotto_dgm is None:
                 self._call_giotto_ph()
+
+            # return the barcode with the specified format
             if out_format == "list":
                 return [(b_time, d_time) for b_time, d_time in self.giotto_dgm["dgms"][dim]]
             elif out_format == "numpy":
                 return self.giotto_dgm["dgms"][dim]
             elif out_format == "torch":
                 return torch.tensor(self.giotto_dgm["dgms"][dim])
-            raise NotImplementedError
+            else:
+                raise ValueError("out_format should be 'list', 'numpy', or 'torch'")
+        
         else: # PH is already computed
             if self.get_ph_left:
                 for death, birth in self.death_to_birth[dim].items():
@@ -113,6 +122,8 @@ class RipsPH(RipsPersistentHomology):
                     b_time, d_time = self.get_diameter(dim, birth), self.get_diameter(dim+1, death)
                     if b_time < d_time:
                         barcode.append((b_time, d_time))
+
+            # return the barcode with the specified format
             if out_format == "list":
                 return barcode
             elif out_format == "numpy":
@@ -125,7 +136,8 @@ class RipsPH(RipsPersistentHomology):
                     return torch.tensor(barcode)
                 else:
                     return torch.empty([0, 2])
-            raise NotImplementedError
+            else:
+                raise ValueError("out_format should be 'list', 'numpy', or 'torch'")
     
     def get_differentiable_diameter(self, dim: int, idx: int, dist_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
@@ -193,9 +205,21 @@ class RipsPH(RipsPersistentHomology):
     def get_bar_object_list(self, dim: int) -> list[Bar]:
         """
         Get list of Bar objects. 
-        Remark:
-            - If compute_ph or compute_ph_right have not been called, PH will be computed with giotto-ph.
-            As a result, the Bar objects will not contain the indices of simplices.
+
+        Parameters
+        ----------
+        dim : int
+            The dimension of the persistent homology.
+
+        Returns
+        -------
+        list[Bar]
+            List of Bar objects.
+
+        Notes
+        -----
+        - If compute_ph or compute_ph_right have not been called, PH will be computed with giotto-ph.
+        As a result, the Bar objects will not contain the indices of simplices.
         """
         ret: list[Bar] = []
         if self.get_ph_left:
