@@ -45,7 +45,7 @@ def _singleton_loss_from_bar_to_target(X: torch.Tensor, bar: Bar, target: torch.
 
     return loss
 
-def _get_standard_gradient(X: torch.Tensor, bar: Bar, target: torch.Tensor, order=2, 
+def _get_standard_gradient_for_singleton(X: torch.Tensor, bar: Bar, target: torch.Tensor, order=2, 
                            distance_matrix: bool = False):
     with torch.enable_grad():
         _X = X.detach().clone().requires_grad_()
@@ -158,7 +158,7 @@ class _singleton_loss_from_bar_to_target_with_bigstep_grad(Function):
 
         # normalize the gradient to have the same norm as the standard gradient
         if normalize_grad:
-            standard_df_dD = _get_standard_gradient(dist_mat, bar, target, order, distance_matrix=True)
+            standard_df_dD = _get_standard_gradient_for_singleton(dist_mat, bar, target, order, distance_matrix=True)
             standard_df_dD_norm = standard_df_dD.norm()
             df_dD_norm = df_dD.norm()
             if df_dD_norm > 0:
@@ -257,7 +257,7 @@ class _singleton_loss_from_bar_to_target_with_continuation_grad(Function):
 
         # normalize the gradient to have the same norm as the standard gradient
         if normalize_grad:
-            standard_df_dX = _get_standard_gradient(X, bar, target, order)
+            standard_df_dX = _get_standard_gradient_for_singleton(X, bar, target, order)
             standard_df_dX_norm = standard_df_dX.norm()
             df_dX_norm = df_dX.norm()
             if df_dX_norm > 0:
@@ -336,7 +336,7 @@ class _singleton_loss_from_bar_to_target_with_diffeo_grad(Function):
         bar, order, normalize_grad, sigma, lmbd = ctx.bar, ctx.order, ctx.normalize_grad, ctx.sigma, ctx.lmbd
 
         # compute the standard gradient
-        standard_df_dX = _get_standard_gradient(X, bar, target, order)
+        standard_df_dX = _get_standard_gradient_for_singleton(X, bar, target, order)
 
         # no gradient if the standard gradient is zero
         if standard_df_dX.norm() == 0:

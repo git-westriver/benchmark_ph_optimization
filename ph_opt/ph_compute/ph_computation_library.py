@@ -157,19 +157,22 @@ class RipsPH(RipsPersistentHomology):
         v1, v2 = self.get_max_edge(dim, idx)
         return dist_mat[v1, v2]
     
-    def get_differentiable_barcode(self, dim: int, dist_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def get_differentiable_barcode(self, dim: int, X: Optional[torch.Tensor] = None, dist_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Get differentiable barcode of dimension `dim`.
         If compute_ph or compute_ph_right have not been called, PH will be computed with giotto-ph.
 
         Args:
             dim (int):  dimension of the barcode.
+            X (Optional[torch.Tensor]): point cloud. If `None`, use the distance matrix provided or the one of the object.
             dist_mat (Optional[torch.Tensor]): distance matrix. If `None`, use the distance matrix of the object.
 
         Returns:
             barcode (torch.Tensor): shape=(# of bars, 2).
         """
-        if dist_mat is None:
+        if X is not None:
+            dist_mat = torch.cdist(X, X)
+        elif dist_mat is None:
             dist_mat = self.dist_mat
 
         if type(dist_mat).__module__ != "torch":
