@@ -1,14 +1,20 @@
 .DS_Store
 __pycache__/
 .ipynb_checkpoints
+.venv/
+.python-version
+*.lock
 *.log
 *.out
+*.so
+*.egg-info
 
 results/sample
 data/*.npy
 data/*.png
-bash
+tmp/
 
 notebooks/private
 
-ph_opt_public.yaml
+.venv/
+*.lock

@@ -3,11 +3,12 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from gudhi.rips_complex import RipsComplex
 from gudhi import plot_persistence_diagram
 from typing import Optional
 from collections.abc import Sized, Iterable
 from numbers import Number
+
+from ph_opt import RipsPH
 
 def is_persistence_diagram(obj):
     """
@@ -44,7 +45,9 @@ def get_max_death_of_pds(pds):
     Returns:
         float: Maximum death value.
     """
-    if is_persistence_diagram(pds):
+    if not pds:
+        return 0
+    elif is_persistence_diagram(pds):
         return max([death for dim, (birth, death) in pds if not math.isinf(death)])
     elif not isinstance(pds, Iterable):
         raise TypeError("The argument `pds` have to be Iterable.")
@@ -71,7 +74,7 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
         high = get_max_death_of_pds(pds)
 
     # get maximum dimension
-    max_dim = max([max([bar[0] for bar in pd]) for pd in pds])
+    max_dim = max([max([bar[0] for bar in pd] + [0]) for pd in pds])
 
     # get colormap
     pd_colormap = list(plt.cm.Set1.colors)
@@ -85,10 +88,10 @@ def plot_pd_with_specified_lim(pds, axes, high=None,
     # plot persistence diagrams
     for i, (pd, ax) in enumerate(zip(pds, axes)):
         # add null point to the PD
-        pd.append((max_dim+1, (0, high*1.01)))
+        _pd = pd + [(max_dim+1, (0, high*1.01))]
 
         # plot the PD
-        plot_persistence_diagram(pd, axes=ax, colormap=pd_colormap, legend=False)
+        plot_persistence_diagram(_pd, axes=ax, colormap=pd_colormap, legend=False)
 
         # set title and labels
         if titles is not None:
@@ -111,6 +114,8 @@ def get_animation(
         title_list: list[str],
         color_list: Optional[list[str]] = None,
         figsize: Optional[tuple[int, int]] = None,
+        vertical: Optional[bool] = True,
+        scatter_config: Optional[dict] = None,
     ) -> animation.FuncAnimation:
     """
     Create an animation of optimization process.
@@ -123,6 +128,7 @@ def get_animation(
         title_list (list[str]): List of titles for each experiment setting.
         color_list (Optional[list[str]], default=None): List of colors for each experiment setting. If None, red, green, and blue are repeatedly used.
         figsize (tuple[int, int]): Figure size. If None, the size is set to (5 * len(title_list), 15).
+        vertical (Optional[bool], default=True): If True, the animation is drawn vertically for each experiment setting.
     """
     # num_setting, num_epoch
     num_setting = len(X_history)
@@ -136,10 +142,15 @@ def get_animation(
         default_colors = ["red", "green", "blue", "orange"]
         color_list = [default_colors[i%len(default_colors)] for i in range(num_setting)]
     if figsize is None:
-        figsize = (5 * len(title_list), 15)
+        if vertical:
+            figsize = (5 * len(title_list), 15)
+        else:
+            figsize = (15, 5 * len(title_list))
+    if scatter_config is None:
+        scatter_config = dict(color='black')
 
     # loss_mean, loss_std
-    loss_mean = []; loss_std = []
+    loss_mean, loss_std = [], []
     for i in range(num_setting):
         loss_mean.append(np.mean([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
         loss_std.append(np.std([loss_history[i][j][:num_epoch] for j in range(len(loss_history[i]))], axis=0))
@@ -155,7 +166,11 @@ def get_animation(
     max_loss = max([loss_mean[i][0] for i in range(num_setting)])
     loss_range = max_loss - min_loss
     min_loss, max_loss = min_loss - 0.005 * loss_range, max_loss + 0.005 * loss_range
-    fig, axes = plt.subplots(3, num_setting, figsize=(5*num_setting, 15))
+    if vertical:
+        fig, axes = plt.subplots(3, num_setting, figsize=figsize, squeeze=False)
+    else:
+        fig, axes = plt.subplots(num_setting, 3, figsize=figsize, squeeze=False)
+        axes = axes.T
 
     # compute PDs beforehand
     PD_history = [[] for i in range(num_setting)]
@@ -163,10 +178,10 @@ def get_animation(
     max_death = 0
     for i in range(num_setting):
         for j in range(len(X_history[i])):
-            rips = RipsComplex(points=X_history[i][j].detach().numpy())
-            simplex_tree = rips.create_simplex_tree(max_dimension=max_dim+1)
-            barcode = simplex_tree.persistence()
-            barcode = [(dim, (birth, death)) for dim, (birth, death) in barcode if dim in dim_list]
+            rph = RipsPH(X_history[i][j].detach().numpy(), maxdim=max_dim)
+            barcode = []
+            for dim in dim_list:
+                barcode += [(dim, (birth, death)) for birth, death in rph.get_barcode(dim)]
             PD_history[i].append(barcode)
 
     # get maximum death value
@@ -181,23 +196,23 @@ def get_animation(
             loss = loss_mean[i][idx]
 
             # get axes
-            ax_X = axes[0, i]
-            ax_pd = axes[1, i]
-            ax_loss = axes[2, i]
+            ax_X, ax_pd, ax_loss = axes[:, i]
 
             # plot the optimization variable
-            ax_X.clear(); ax_pd.clear(); ax_loss.clear()
+            ax_X.clear()
             ax_X.set_title(title_list[i])
             ax_X.set_xlim(xmin, xmax)
             ax_X.set_ylim(ymin, ymax)
-            ax_X.scatter(X[:, 0], X[:, 1], c="black")
+            ax_X.scatter(X[:, 0], X[:, 1], **scatter_config)
             ax_X.set_aspect("equal")
 
             # draw the PD
+            ax_pd.clear()
             plot_pd_with_specified_lim([pd], [ax_pd], high=max_death, 
                                        titles=[""], x_labels=[""], y_labels=[""])
 
             # draw the loss curve
+            ax_loss.clear()
             ax_loss.set_xlim(-1, num_epoch)
             ax_loss.set_ylim(min_loss, max_loss)
             ax_loss.plot(loss_mean[i][:idx+1], color=color_list[i])
