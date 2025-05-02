@@ -41,7 +41,7 @@ Through this interface, you can optimize **one point cloud** $X$ with the loss d
 
 $\mathcal{L}(X) = L_{\text{topo}}(X) + \lambda L_{\text{reg}}(X),$
 
-where $L_{\text{loss}}$ is the topological loss, $L_{\text{reg}}$ is the regularization term and $\lambda$ is the hyperparameter.
+where $L_{\text{topo}}$ is the topological loss, $L_{\text{reg}}$ is the regularization term and $\lambda$ is the hyperparameter.
 You can customize $L_{\text{topo}}$ and $L_{\text{reg}}$ in the way described in `notebooks/01_usage_of_algorithms`.
 
 ### 2. `ph-grad` interface
@@ -71,7 +71,7 @@ For more details, please refer to `notebooks/02_usage_of_gradient_interface.ipyn
 PHTrainer is an interface that handles both point cloud optimization and trajectory visualization/saving in a unified manner.
 By simply specifying the loss function (and regularization), you can avoid writing boilerplate training code, helping to keep your codebase concise.
 This is particularly useful when comparing different optimization methods.
-The scripts main_ph_loss.py and main_ph_grad.py use this interface to compare the results of various methods.
+The scripts `main_ph_loss.py` and `main_ph_grad.py` use this interface to compare the results of various methods.
 For usage details, please refer to these files as well as the docstrings of PHTrainerConfig and PHTrainer.
 
 ## References
