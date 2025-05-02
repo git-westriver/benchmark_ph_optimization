@@ -38,9 +38,9 @@ We also provide a convenient nterface that enables optimization, result saving, 
 ### 1. `ph-loss` interface
 
 Through this interface, you can optimize **one point cloud** $X$ with the loss defined as
-$$
-    \mathcal{L}(X) = L_{\text{topo}}(X) + \lambda L_{\text{reg}}(X),
-$$
+
+$\mathcal{L}(X) = L_{\text{topo}}(X) + \lambda L_{\text{reg}}(X),$
+
 where $L_{\text{loss}}$ is the topological loss, $L_{\text{reg}}$ is the regularization term and $\lambda$ is the hyperparameter.
 You can customize $L_{\text{topo}}$ and $L_{\text{reg}}$ in the way described in `notebooks/01_usage_of_algorithms`.
 
