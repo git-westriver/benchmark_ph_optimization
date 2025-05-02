@@ -18,16 +18,6 @@ def _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad(rph: Rip
                                      order=order, enable_autodiff=True, keep_essential_parts=False) ** order
         
     return loss
-    
-def _powered_wasserstein_distance_one_sided_with_standard_grad(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2):
-    # compute RipsPH
-    maxdim = max(dims)
-    rph = RipsPH(X, maxdim=maxdim)
-
-    # compute the loss
-    loss = _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad(rph, ref_pd, dims, order)
-
-    return loss
 
 def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
                                           order: int = 2, need_V_and_W: bool = False) -> list[tuple[int, Bar, torch.Tensor]]:
@@ -44,7 +34,7 @@ def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Te
 
     for dim, _ref_pd in zip(dims, ref_pd):
         # get bars and matching to ref_pd
-        bars = rph.get_bar_object_list(dim)
+        bars = rph.get_bar_objects(dim)
         barcode = torch.tensor([[bar.birth_time, bar.death_time] for bar in bars])
         loss, matching = wasserstein_distance(barcode, _ref_pd, order=order, matching=True, keep_essential_parts=False)
 
@@ -81,11 +71,11 @@ def _get_improved_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH,
                                            order: int = 2, sigma: float = 0.1, lmbd: float = 1e-5, all_X: Optional[torch.Tensor] = None):
     with torch.enable_grad():
         _X = X.detach().clone().requires_grad_()
-        _loss = torch.tensor(0.).to(_X.device).dtype(_X.dtype)
+        _loss = torch.tensor(0., device=_X.device, dtype=_X.dtype)
         for dim, bar_to_move, target in target_info:
-            _loss += singleton_loss_from_bar_to_target(X, bar_to_move, target, grad_type=grad_type, order=order, normalize_grad=False, 
+            _loss += singleton_loss_from_bar_to_target(_X, bar_to_move, target, grad_type=grad_type, order=order, normalize_grad=False, 
                                                        dim=dim, rph=rph, sigma=sigma, lmbd=lmbd, all_X=all_X)
-    
+
     if _loss.requires_grad:
         improved_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
     else:
@@ -106,6 +96,9 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
 
         # get RipsPH and loss
         rph, loss, target_info = _get_rph_loss_targets_for_wasserstein(X, ref_pd, dims, order, need_V_and_W=(grad_type == 'bigstep'))
+
+        # operation to make grad_fn works
+        loss = loss + X.sum() * 0.
 
         # save rph and target_info in the context
         ctx.rph, ctx.target_info = rph, target_info
@@ -128,7 +121,7 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
         improved_df_dX = _get_improved_gradient_for_wasserstein(X, rph, target_info, grad_type, order, sigma, lmbd, all_X)
 
         # if improved_df_dX is not zero, normalize it to have the same norm as standard_dF_df
-        if improved_df_dX.norm() > 0:
+        if (improved_df_dX.norm() > 0) and (grad_type != 'standard'):
             standard_df_dX = _get_standard_gradient_for_wasserstein(X, rph, ref_pd, dims, order)
             improved_df_dX = (improved_df_dX / improved_df_dX.norm()) * standard_df_dX.norm()
 
@@ -160,9 +153,4 @@ def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.T
         loss: the Wasserstein distance.
     """
 
-    if grad_type == 'standard':
-        loss = _powered_wasserstein_distance_one_sided_with_standard_grad(X, ref_pd, dims, order)
-    else:
-        loss = _powered_wasserstein_distance_one_sided_with_improved_grad.apply(X, ref_pd, dims, order, grad_type, sigma, lmbd, all_X)
-    
-    return loss
+    return _powered_wasserstein_distance_one_sided_with_improved_grad.apply(X, ref_pd, dims, order, grad_type, sigma, lmbd, all_X)

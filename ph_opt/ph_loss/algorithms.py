@@ -30,6 +30,12 @@ class GradientDescent(PHOptimization):
     def __init__(self, X: torch.Tensor, loss_obj: PersistenceBasedLoss, reg_obj: Optional[Regularization]=None, reg_proj: bool=False, 
                  lr: float=1e-1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
         super().__init__(X, loss_obj, reg_obj, reg_proj)
+        
+        # make optimizer_conf and scheduler_conf empty dictionary if they are None
+        if optimizer_conf is None:
+            optimizer_conf = {}
+        if scheduler_conf is None:
+            scheduler_conf = {}
 
         # get optimizer and scheduler
         self.optimizer = get_optimizer([self.X], lr=lr, **optimizer_conf)
@@ -52,6 +58,12 @@ class BigStep(PHOptimization):
     def __init__(self, X: torch.Tensor, loss_obj: PersistenceBasedLoss, reg_obj: Optional[Regularization]=None, reg_proj: bool=False, 
                  lr: float=1e-1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
         super().__init__(X, loss_obj, reg_obj, reg_proj)
+
+        # make optimizer_conf and scheduler_conf empty dictionary if they are None
+        if optimizer_conf is None:
+            optimizer_conf = {}
+        if scheduler_conf is None:
+            scheduler_conf = {}
 
         # get optimizer and scheduler
         self.optimizer = get_optimizer([self.X], lr=lr, **optimizer_conf)
@@ -151,6 +163,12 @@ class Diffeo(PHOptimization):
                  lr: float=1e-1, sigma: float=0.1, optimizer_conf: Optional[dict[str]]=None, scheduler_conf: Optional[dict[str]]=None):
         super().__init__(X, loss_obj, reg_obj, reg_proj)
 
+        # make optimizer_conf and scheduler_conf empty dictionary if they are None
+        if optimizer_conf is None:
+            optimizer_conf = {}
+        if scheduler_conf is None:
+            scheduler_conf = {}
+
         # get optimizer and scheduler
         self.optimizer = get_optimizer([self.X], lr=lr, **optimizer_conf)
         self.scheduler = get_scheduler(self.optimizer, **scheduler_conf)
@@ -172,10 +190,6 @@ class Diffeo(PHOptimization):
         # compute the new gradient using diffeomorphic interpolation
         nonzero_grad_idx = [idx for idx in range(self.num_pts) if gen_grad[idx, :].norm() > 0]
         nonzero_grad_X = self.X[nonzero_grad_idx, :]
-        print(self.X.size(), nonzero_grad_X.size(), 2 * self.sigma ** 2, 
-              torch.cdist(nonzero_grad_X, nonzero_grad_X).size(), 
-              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)).min(), 
-              (torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)).max())
         a_vec = torch.cat([gen_grad[i, :] for i in nonzero_grad_idx], dim=0) # corresponds to `a` in the paper
         _K_mat = torch.exp(- torch.cdist(nonzero_grad_X, nonzero_grad_X) ** 2 / (2 * self.sigma ** 2)) # the Gaussian kernel matrix
         K_mat = torch.kron(_K_mat, torch.eye(self.X.shape[1])) # corresponds to `K` in the paper
@@ -211,7 +225,7 @@ class Continuation(PHOptimization):
     def move_forward(X: torch.Tensor, bar_list: list[Bar], direction: torch.Tensor, scale: float=1.0) -> torch.Tensor:
         """
         staticmethod to move PD to the desirable direction.
-        Note that bar_list can be obtained through RipsPH.get_bar_object_list.
+        Note that bar_list can be obtained through RipsPH.get_bar_objects.
 
         Parameters:
             - X(torch.Tensor): shape=(num_pts, 2)

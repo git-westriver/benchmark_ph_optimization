@@ -139,17 +139,31 @@ class RipsPH(RipsPersistentHomology):
             else:
                 raise ValueError("out_format should be 'list', 'numpy', or 'torch'")
     
-    def get_differentiable_diameter(self, dim: int, idx: int, dist_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def get_differentiable_diameter(self, dim: int, idx: int, 
+                                    X: Optional[torch.Tensor] = None, 
+                                    dist_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Get differentiable diameter of the simplex with index `idx` in dimension `dim`.
-        Args:
-            dim (int): dimension of the simplex.
-            idx (int): index of the simplex.
-            dist_mat (Optional[torch.Tensor]): distance matrix. If `None`, use the distance matrix of the object.
-        Returns:
-            diameter (torch.Tensor): diameter of the simplex.
+
+        Parameters
+        ----------
+        dim : int 
+            Dimension of the simplex.
+        idx : int
+            Index of the simplex.
+        X : Optional[torch.Tensor]
+            Point cloud. If `None`, use the distance matrix provided or the one of the object.
+        dist_mat : Optional[torch.Tensor]
+            Distance matrix. If `None`, use the distance matrix of the object.
+        
+        Returns
+        ----------
+        diameter : torch.Tensor
+            Diameter of the simplex.
         """
-        if dist_mat is None:
+        if X is not None:
+            dist_mat = torch.cdist(X, X)
+        elif dist_mat is None:
             dist_mat = self.dist_mat
 
         if type(dist_mat).__module__ != "torch":
@@ -162,13 +176,19 @@ class RipsPH(RipsPersistentHomology):
         Get differentiable barcode of dimension `dim`.
         If compute_ph or compute_ph_right have not been called, PH will be computed with giotto-ph.
 
-        Args:
-            dim (int):  dimension of the barcode.
-            X (Optional[torch.Tensor]): point cloud. If `None`, use the distance matrix provided or the one of the object.
-            dist_mat (Optional[torch.Tensor]): distance matrix. If `None`, use the distance matrix of the object.
+        Parameters
+        ----------
+        dim : int
+            Dimension of the barcode.
+        X : Optional[torch.Tensor]
+            Point cloud. If `None`, use the distance matrix provided or the one of the object.
+        dist_mat : Optional[torch.Tensor]
+            Distance matrix. If `None`, use the distance matrix of the object.
 
-        Returns:
-            barcode (torch.Tensor): shape=(# of bars, 2).
+        Returns
+        ----------
+        barcode (torch.Tensor, shape=(# of bars, 2))
+            Differentiable barcode of dimension `dim`. Each row is a bar with birth and death time.
         """
         if X is not None:
             dist_mat = torch.cdist(X, X)
@@ -177,15 +197,21 @@ class RipsPH(RipsPersistentHomology):
 
         if type(dist_mat).__module__ != "torch":
             raise ValueError("Differentiable barcode is only available for torch.Tensor")
-        b_time_list = []; d_time_list = []
+        b_time_list, d_time_list = [], []
         if self.get_ph_left:
             for d_simp, b_simp in self.death_to_birth[dim].items():
-                b_time_list.append(self.get_differentiable_diameter(dim, b_simp))
-                d_time_list.append(self.get_differentiable_diameter(dim+1, d_simp))
+                b_time = self.get_differentiable_diameter(dim, b_simp, X=X)
+                d_time = self.get_differentiable_diameter(dim+1, d_simp, X=X)
+                if b_time < d_time:
+                    b_time_list.append(b_time)
+                    d_time_list.append(d_time)
         elif self.get_ph_right:
             for b_simp, d_simp in self.birth_to_death[dim].items():
-                b_time_list.append(self.get_differentiable_diameter(dim, b_simp))
-                d_time_list.append(self.get_differentiable_diameter(dim+1, d_simp))
+                b_time = self.get_differentiable_diameter(dim, b_simp, X=X)
+                d_time = self.get_differentiable_diameter(dim+1, d_simp, X=X)
+                if b_time < d_time:
+                    b_time_list.append(b_time)
+                    d_time_list.append(d_time)
         else:
             if self.giotto_dgm is None:
                 self._call_giotto_ph()
@@ -205,7 +231,7 @@ class RipsPH(RipsPersistentHomology):
         else:
             return torch.empty([0, 2], dtype=torch.float32)
     
-    def get_bar_object_list(self, dim: int) -> list[Bar]:
+    def get_bar_objects(self, dim: int) -> list[Bar]:
         """
         Get list of Bar objects. 
 
@@ -231,14 +257,16 @@ class RipsPH(RipsPersistentHomology):
                 dv1, dv2 = self.get_max_edge(dim+1, d_simp)
                 b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
                 b_time, d_time = float(b_time), float(d_time)
-                ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
+                if b_time < d_time:
+                    ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
         elif self.get_ph_right:
             for b_simp, d_simp in self.birth_to_death[dim].items():
                 bv1, bv2 = self.get_max_edge(dim, b_simp)
                 dv1, dv2 = self.get_max_edge(dim+1, d_simp)
                 b_time, d_time = self.dist_mat[bv1, bv2], self.dist_mat[dv1, dv2]
                 b_time, d_time = float(b_time), float(d_time)
-                ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
+                if b_time < d_time:
+                    ret.append(Bar(b_time, d_time, bv1, bv2, dv1, dv2, b_simp, d_simp))
         else:
             if self.giotto_dgm is None:
                 self._call_giotto_ph()

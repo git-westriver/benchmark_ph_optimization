@@ -69,7 +69,7 @@ class PersistenceBasedLoss:
             list[tuple]: the `i`-th tuple corresponds to `dim_list[i]`-dimensional persistent homology. 
             Each tuple contains:
                 - dim(int): equal to `dim_list[i]`
-                - list of `Bar` (can be obtained through `RipsPH.get_bar_object_list`): the bars to move
+                - list of `Bar` (can be obtained through `RipsPH.get_bar_objects`): the bars to move
                 - direction to move (torch.Tensor)
         """
         raise NotImplementedError
@@ -101,7 +101,7 @@ class WassersteinLoss(PersistenceBasedLoss):
         ret = []
         for dim_idx, dim in enumerate(self.dim_list):
             bars_to_move, direction = [], []
-            bar_list = rph.get_bar_object_list(dim)
+            bar_list = rph.get_bar_objects(dim)
             barcode = torch.tensor([[bar.birth_time, bar.death_time] for bar in bar_list])
             _, matching = wasserstein_distance(barcode, self.desirable_pd[dim_idx], order=self.order, matching=True, keep_essential_parts=False)
             for i, j in matching:
@@ -156,7 +156,7 @@ class ExpandLoss(PersistenceBasedLoss):
     def get_direction(self, X, rph=Optional[RipsPH]):
         ret: list[tuple[int, Bar, torch.Tensor]] = []
         for dim in self.dim_list:
-            bar_list = rph.get_bar_object_list(dim)
+            bar_list = rph.get_bar_objects(dim)
 
             # filter bars by eps and topk
             bar_list = [bar for bar in bar_list if bar.death_time - bar.birth_time > self.eps]

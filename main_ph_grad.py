@@ -20,10 +20,10 @@ def sampled_expand_loss_with_regtangle_regularization(X: torch.Tensor, grad_type
             rph.compute_ph_right()
 
         # get bar with maximum lifetime
-        bars = rph.get_bar_object_list(1)
+        bars = rph.get_bar_objects(1)
         if not bars:
             continue
-        bar = max(rph.get_bar_object_list(1), key=lambda b: b.death_time - b.birth_time)
+        bar = max(rph.get_bar_objects(1), key=lambda b: b.death_time - b.birth_time)
 
         # get target and compute loss
         _target = (bar.birth_time + bar.death_time) / 2
