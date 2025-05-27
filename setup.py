@@ -27,7 +27,7 @@ ext_modules = [
 
 setup(
     name="ph_opt",
-    version="1.0.0",
+    version="1.0.1",
     description="Library for optimizing persistent homology",
     packages=[
         "ph_opt",
