@@ -32,8 +32,10 @@ setup(
     packages=[
         "ph_opt",
         "ph_opt.data",
+        "ph_opt.optimizer",
         "ph_opt.ph_compute",
         "ph_opt.ph_compute.bin",
+        "ph_opt.ph_grad",
         "ph_opt.ph_loss",
         "ph_opt.scheduler",
         "ph_opt.utils",
