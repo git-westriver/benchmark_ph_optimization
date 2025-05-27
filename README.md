@@ -21,7 +21,6 @@ If we need matrix decomposition, we use our fast implementation inspired by [5].
 | [0.1.0](https://github.com/git-westriver/benchmark_ph_optimization/tree/ver-0.1.0) |  | Initial release. |
 | [0.2.0](https://github.com/git-westriver/benchmark_ph_optimization/tree/ver-0.2.0) | 2025.03.06 | Refactor the visualization feature. Fix some bugs. |
 | [1.0.0](https://github.com/git-westriver/benchmark_ph_optimization/tree/ver-1.0.0) | 2025.05.02 | Package the library for `pip install`. Add new interface `ph-grad`. |
-| [1.0.1](https://github.com/git-westriver/benchmark_ph_optimization/tree/ver-1.0.1) | 2025.05.27 | Fix import-time bugs. |
 
 ## How to start
 
