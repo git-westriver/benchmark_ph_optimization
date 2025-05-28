@@ -1,5 +1,6 @@
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim import Optimizer
+import warnings
 
 def get_scheduler(optimizer: Optimizer, name: str="const", **kwargs):
     """
@@ -13,6 +14,8 @@ def get_scheduler(optimizer: Optimizer, name: str="const", **kwargs):
     Returns:
         scheduler(torch.optim.lr_scheduler._LRScheduler): scheduler.
     """
+    warnings.warn("ph_opt.scheduler.scheduler.get_scheduler is deprecated.", DeprecationWarning)
+
     if name == "const":
         return None
     elif name == "TransformerLR":

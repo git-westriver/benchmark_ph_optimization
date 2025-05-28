@@ -1,4 +1,5 @@
 import torch
+import warnings
 
 def get_optimizer(variables: list[torch.Tensor], lr: float, name: str="SGD", **kwargs):
     """
@@ -13,6 +14,8 @@ def get_optimizer(variables: list[torch.Tensor], lr: float, name: str="SGD", **k
     Returns:
         optimizer(torch.optim.Optimizer): optimizer.
     """
+    warnings.warn("ph_opt.optimizer.optimizer.get_optimizer is deprecated.", DeprecationWarning)
+
     if name == "SGD":
         return torch.optim.SGD(variables, lr=lr)
     elif name == "Adam":

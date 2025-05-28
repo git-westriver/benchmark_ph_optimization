@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Optional
+from typing import Optional, Type
 import sys
 import os
 from typing import Callable
@@ -18,38 +18,38 @@ from ph_opt import (
     get_animation
 )
 from ph_opt.data import circle_with_one_outlier, get_data
-from ph_opt.optimizer import get_optimizer
-from ph_opt.scheduler import get_scheduler
 
 @dataclasses.dataclass
 class PHTrainerConfig:
     """
-    Configuration for persistence homology optimization.
+    Configuration class for PHTrainer.
 
-    Parameters:
-        - COMMON SETTINGS
-            - exp_name(str, default=""): Experiment name. This will be used as a directory name to save the results.
-            - save_dirpath(str, default="results/sample"): Directory path to save the results.
-            - data_source(Callable | str | Path, default=circle_with_one_outlier): Data generating function. You can define your own function in `data_loader.py`.
-            - num_trial(int, default=1): If you want to perform the optimization multiple times with different initial values and see the average results, set this parameter.
-            - num_epoch(int, default=None): Number of epochs. If `None`, the optimization is performed until `time_limit`.
-            - time_limit(Optional[float], default=None): Time limit. If `None`, the optimization is performed until `num_epoch`.
-            - log_interval(int, default=10): The logs (for example, loss value) are printed every `log_interval` epochs.
-        - LOSS FUNCTION
-            - loss_obj(PersistenceBasedLoss, default=ExpandLoss([1], 1), topk=1): 
-                Object that determines the loss function. You can define your own function in `persistence_based_loss.py`.
-            - regularization_obj(Optional[Regularization], default=RectangleRegularization(-2., -2., 2., 2., 1., 2)): 
-                Regularization. You can define your own function in `regularization.py`.
-        - METHOD
-            - method(str, default="gd"): Optimization method. "gd", "bigstep", "continuation" and "diffeo" are available.
-            - lr(float, default=1e-1): Learning rate.
-            - reg_proj(bool, default=False): 
-                If `True`, the algorithm projects the variables to the region where the regularization term is zero at the end of each epoch.
-            - optimizer_conf(dict, default={}): Configuration for the optimizer used in "gd" and "bigstep". You can specify the following keys:
-                - "name"(str, default="SGD"): Name of the optimizer. You can choose from "SGD" and "Adam".
-            - scheduler_conf(dict, default={}): Configuration for the scheduler. You can specify the following keys:
-                - "name"(str, default="const"): Name of the scheduler. You can choose from "const" and "TransformerLR".
-            - num_in_iter(int, default=1): Number of iterations in the continuation method.
+    This class encapsulates all the necessary parameters for training using
+    persistent homology-based optimization methods. It includes loss function
+    definitions, data loading strategy, optimization hyperparameters, and logging behavior.
+
+    Attributes:
+        loss_obj (PersistenceBasedLoss | Callable): Loss function or callable object used for optimization.
+        regularization_obj (Optional[Regularization]): Optional regularization term to be added to the loss.
+        exp_name (str): Name of the experiment, used for naming output directories and files.
+        save_dirpath (str | Path): Path to directory where results and logs will be saved.
+        data_source (Callable | str | Path): Function or path that provides the training data.
+        init_strategy (Optional[Callable]): Initialization function for input variables.
+        num_trial (int): Number of trials to run with different initializations.
+        num_epoch (Optional[int]): Number of training epochs. Required if time_limit is not set.
+        time_limit (Optional[float]): Time limit for training. Required if num_epoch is not set.
+        log_interval (int): Interval of epochs at which logs are printed.
+        method (str): Optimization method. One of "gd", "bigstep", "continuation", "diffeo".
+        lr (float): Learning rate.
+        reg_proj (bool): Whether to apply projection in the presence of regularization.
+        optimizer_class (Type[torch.optim.Optimizer]): Optimizer class to use (e.g., SGD).
+        optimizer_config (dict): Additional configuration for the optimizer.
+        scheduler_class (Optional[Type[torch.optim.lr_scheduler._LRScheduler]]): Optional learning rate scheduler class.
+        scheduler_config (dict): Additional configuration for the scheduler.
+        num_in_iter (int): Number of inner iterations used in continuation methods.
+
+    Raises:
+        ValueError: If neither `num_epoch` nor `time_limit` is set.
     """
     ### LOSS FUNCTION ###
     loss_obj: PersistenceBasedLoss | Callable
@@ -69,8 +69,10 @@ class PHTrainerConfig:
     method: str = "gd" # "gd", "bigstep", "continuation", "diffeo"
     lr: float = 1e-1
     reg_proj: bool = False
-    optimizer_conf: dict = dataclasses.field(default_factory=dict)
-    scheduler_conf: dict = dataclasses.field(default_factory=dict)
+    optimizer_class: Type[torch.optim.Optimizer] = torch.optim.SGD
+    optimizer_config: dict = dataclasses.field(default_factory=dict)
+    scheduler_class: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
+    scheduler_config: dict = dataclasses.field(default_factory=dict)
     num_in_iter: int = 1 # for continuation
     
     def __post_init__(self):
@@ -95,6 +97,23 @@ class PHTrainerConfig:
         sys.stdout.flush()
 
 class PHTrainer:
+    """
+    Persistent Homology Trainer for point cloud optimization.
+
+    This class orchestrates training with persistent homology-based optimization methods
+    using the configuration provided in PHTrainerConfig. It handles dataset preparation,
+    initialization, optimization, logging, and visualization.
+
+    Executes the training process based on the given configuration by calling`train` method.
+    Supports multiple trials and saves visualizations, model histories, and logs to disk.
+
+    Args:
+        config (PHTrainerConfig): Configuration object specifying training parameters.
+        scatter_config (Optional[dict]): Configuration for scatter plot visualization.
+        viz_dims (Optional[list[int]]): List of dimensions to use for visualization. This have to be set if config.loss_obj is not a PersistenceBasedLoss.
+        save_dirpath (Path | str): Directory to save logs, models, and visualizations.
+    """
+
     def __init__(self, config: Optional[PHTrainerConfig] = None, scatter_config: Optional[dict] = None, viz_dims: Optional[list[int]] = None):
         if config is None:
             config = PHTrainerConfig()
@@ -248,8 +267,11 @@ class PHTrainer:
     
     def optimize_with_gradient_based_interface(self, loss_func: Callable, X: torch.Tensor) -> tuple[list[torch.Tensor], list[float], list[float]]:
         # Initialize optimizer and scheduler
-        optimizer = get_optimizer([X], self.config.lr, **self.config.optimizer_conf)
-        scheduler = get_scheduler(optimizer, **self.config.scheduler_conf)
+        optimizer = self.config.optimizer_class([X], lr=self.config.lr, **self.config.optimizer_config)
+        if self.config.scheduler_class is not None:
+            scheduler = self.config.scheduler_class(optimizer, **self.config.scheduler_config) if self.config.scheduler_class is not None else None
+        else:
+            scheduler = None
 
         # Initialize some variables
         X_history = []
