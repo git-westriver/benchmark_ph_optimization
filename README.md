@@ -28,7 +28,7 @@ If we need matrix decomposition, we use our fast implementation inspired by [5].
 You can install the library by using `pip` command:
 
 ```bash
-pip install git+https://github.com/git-westriver/benchmark_ph_optimization.git@ver-1.0.0
+pip install git+https://github.com/git-westriver/benchmark_ph_optimization.git@ver-1.0.1
 ```
 
 ## Usage
