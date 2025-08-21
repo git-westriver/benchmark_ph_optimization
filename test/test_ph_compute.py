@@ -121,6 +121,7 @@ if __name__ == "__main__":
                                  clearing_opt=clearing_opt)
             testee_barcode_0 = testee_ph.get_barcode(dim=0).sort()
             testee_barcode_1 = testee_ph.get_barcode(dim=1).sort()
+            assert testee_ph.giotto_dgm is None
 
             # check if barcodes match
             assert np.array_equal(correct_barcode_0, testee_barcode_0), \
@@ -135,6 +136,7 @@ if __name__ == "__main__":
                                        emergent_opt=emergent_opt)
             testee_barcode_0 = testee_ph.get_barcode(dim=0).sort()
             testee_barcode_1 = testee_ph.get_barcode(dim=1).sort()
+            assert testee_ph.giotto_dgm is None
 
             # check if barcodes match
             assert np.array_equal(correct_barcode_0, testee_barcode_0), \
