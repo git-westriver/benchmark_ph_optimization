@@ -9,6 +9,7 @@
 #include <cassert>
 #include <algorithm>
 #include <thread>
+#include <stdexcept>
 
 using namespace std;
 using ll=long long;
@@ -296,14 +297,24 @@ struct RipsPersistentHomology {
                 }
                 simp_idx_t coface_idx = term_1 + binomial(j, k+2) + term_2;
                 diameter_t coface_diameter = get_diameter(dim+1, coface_idx);
-                if (encl_opt && coface_diameter > enclosing_radius) continue;
+                if (encl_opt && coface_diameter > enclosing_radius) {
+                    continue;
+                }
                 if (emg_opt && coface_diameter == get_diameter(dim, idx)) {
                     emg_opt = false;
-                    if (death_to_birth[dim].count(coface_idx) == 0) return make_pair(true, coface_idx); 
+                    if (death_to_birth[dim].count(coface_idx) == 0) {
+                        return make_pair(true, coface_idx); 
+                    }
                 }
-                if (push) row.push(DiameterEntry(dim+1, coface_idx, coface_diameter));
+                if (push) {
+                    row.push(DiameterEntry(dim+1, coface_idx, coface_diameter));
+                }
             }
-            return make_pair(false, row.top().idx);
+            if (row.empty()) {
+                return make_pair(false, 0);
+            } else {
+                return make_pair(false, row.top().idx);
+            }
         }
         pair<bool, simp_idx_t> heappush_coboundary(dim_t dim, simp_idx_t idx, bool encl_opt, bool emg_opt) {
             Row row; row.push(DiameterEntry());
@@ -323,14 +334,24 @@ struct RipsPersistentHomology {
                 }
                 simp_idx_t face_idx = term_1 + term_2;
                 diameter_t face_diameter = get_diameter(dim-1, face_idx);
-                if (encl_opt && face_diameter > enclosing_radius) continue;
+                if (encl_opt && face_diameter > enclosing_radius) {
+                    continue;
+                }
                 if (emg_opt && face_diameter == get_diameter(dim, idx)){
                     emg_opt = false;
-                    if (birth_to_death[dim-1].count(face_idx) == 0) return make_pair(true, face_idx);
+                    if (birth_to_death[dim-1].count(face_idx) == 0) {
+                        return make_pair(true, face_idx);
+                    }
                 }
-                if (push) column.push(DiameterEntry(dim-1, face_idx, face_diameter));
+                if (push) {
+                    column.push(DiameterEntry(dim-1, face_idx, face_diameter));
+                }
             }
-            return make_pair(false, column.top().idx);
+            if (column.empty()) {
+                throw runtime_error("Unexpected empty column encountered in heappush_boundary. This is a bug in the C++ implementation.");
+            } else {
+                return make_pair(false, column.top().idx);
+            }
         }
         pair<bool, simp_idx_t> heappush_boundary(dim_t dim, simp_idx_t idx, bool encl_opt, bool emg_opt) {
             Column column; column.push(DiameterEntry());
@@ -411,7 +432,14 @@ struct RipsPersistentHomology {
                         continue;
                     }
                     while (clearing_opt || !row.empty()){ 
-                        DiameterEntry pivot_entry = row.top(); row.pop(); 
+                        // when clearing_opt == true, `row` is expected to be non-empty
+                        if (row.empty()) {
+                            throw runtime_error("Unexpected empty row encountered in compute_ph. This is a bug in the C++ implementation.");
+                        }
+
+                        DiameterEntry pivot_entry = row.top(); 
+                        row.pop(); 
+
                         if (!row.empty() && pivot_entry.idx == row.top().idx){
                             row.pop(); 
                         } else if (death_to_birth[dim].count(pivot_entry.idx)){
