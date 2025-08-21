@@ -61,6 +61,7 @@ def _get_standard_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, ref_pd:
     
     if _loss.requires_grad:
         standard_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
+        standard_df_dX = torch.nan_to_num(standard_df_dX, nan=0.0)
     else:
         standard_df_dX = torch.zeros_like(_X)
 
