@@ -370,7 +370,7 @@ struct RipsPersistentHomology {
             return;
         }
 
-        void compute_ph(bool enclosing_opt=true, bool emgergent_opt=true, bool clearing_opt=true, bool get_inv=false) {
+        void compute_ph(bool enclosing_opt=true, bool emergent_opt=true, bool clearing_opt=true, bool get_inv=false) {
             rep(_dim, 1, max(2U, maxdim+1)) {
                 dim_t dim = _dim;
                 vector<DiameterEntry> simplex_list;
@@ -426,7 +426,7 @@ struct RipsPersistentHomology {
                     W[dim][_simp_entr->idx].insert(_simp_entr->idx);
                     invW[dim][_simp_entr->idx].insert(_simp_entr->idx);
                     Row row;
-                    pair<bool, simp_idx_t> ret = heappush_coboundary(row, dim, _simp_entr->idx, enclosing_opt, emgergent_opt);
+                    pair<bool, simp_idx_t> ret = heappush_coboundary(row, dim, _simp_entr->idx, enclosing_opt, emergent_opt);
                     if (ret.first) {
                         death_to_birth[dim][ret.second] = _simp_entr->idx;
                         continue;
@@ -445,7 +445,9 @@ struct RipsPersistentHomology {
                         } else if (death_to_birth[dim].count(pivot_entry.idx)){
                             simp_idx_t target_simp = death_to_birth[dim][pivot_entry.idx]; 
                             symmetricDifference(W[dim][_simp_entr->idx], W[dim][target_simp]);
-                            if (get_inv) invW[dim][target_simp].insert(_simp_entr->idx); 
+                            if (get_inv) {
+                                invW[dim][target_simp].insert(_simp_entr->idx); 
+                            }
                             rep(sweep_idx, W[dim][target_simp].begin(), W[dim][target_simp].end()) {
                                 heappush_coboundary(row, dim, *sweep_idx, enclosing_opt, false);
                             }
@@ -459,7 +461,7 @@ struct RipsPersistentHomology {
             }
         }
 
-        void compute_ph_right(bool enclosing_opt=true, bool emgergent_opt=true, bool get_inv=false) {
+        void compute_ph_right(bool enclosing_opt=true, bool emergent_opt=true, bool get_inv=false) {
             rep(_dim, maxdim+1) {
                 dim_t dim = _dim;
                 if (dim >= 1){
@@ -515,7 +517,7 @@ struct RipsPersistentHomology {
                     V[dim][_simp_entr->idx].insert(_simp_entr->idx);
                     invV[dim][_simp_entr->idx].insert(_simp_entr->idx);
                     Column column;
-                    pair<bool, simp_idx_t> ret = heappush_boundary(column, dim+1, _simp_entr->idx, enclosing_opt, emgergent_opt);
+                    pair<bool, simp_idx_t> ret = heappush_boundary(column, dim+1, _simp_entr->idx, enclosing_opt, emergent_opt);
                     if (ret.first) {
                         birth_to_death[dim][ret.second] = _simp_entr->idx;
                         continue;
@@ -527,7 +529,9 @@ struct RipsPersistentHomology {
                         } else if (birth_to_death[dim].count(pivot_entry.idx)){
                             simp_idx_t target_simp = birth_to_death[dim][pivot_entry.idx]; 
                             symmetricDifference(V[dim][_simp_entr->idx], V[dim][target_simp]);
-                            if (get_inv) invV[dim][target_simp].insert(_simp_entr->idx);
+                            if (get_inv) {
+                                invV[dim][target_simp].insert(_simp_entr->idx);
+                            }
                             rep(sweep_idx, V[dim][target_simp].begin(), V[dim][target_simp].end()) {
                                 heappush_boundary(column, dim+1, *sweep_idx, enclosing_opt, false);
                             }

@@ -17,6 +17,7 @@ dependencies = [
     "pot>=0.9.3",
     "pybind11>=2.6.1",
     "torch>=2.2.0",
+    "tqdm>=4.67.1",
 ]
 
 [build-system]

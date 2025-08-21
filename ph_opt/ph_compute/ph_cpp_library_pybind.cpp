@@ -40,9 +40,9 @@ PYBIND11_MODULE(rips_cpp, m) {
         .def("get_diameter", &RipsPersistentHomology::get_diameter)
         .def("get_max_edge", &RipsPersistentHomology::get_max_edge)
         .def("compute_ph", &RipsPersistentHomology::compute_ph, 
-            py::arg("enclosing_opt")=true, py::arg("emgergent_opt")=true, py::arg("clearing_opt")=true, py::arg("get_inv")=false)
+            py::arg("enclosing_opt")=true, py::arg("emergent_opt")=true, py::arg("clearing_opt")=true, py::arg("get_inv")=false)
         .def("compute_ph_right", &RipsPersistentHomology::compute_ph_right, 
-            py::arg("enclosing_opt")=true, py::arg("emgergent_opt")=true, py::arg("get_inv")=false)
+            py::arg("enclosing_opt")=true, py::arg("emergent_opt")=true, py::arg("get_inv")=false)
         .def_readwrite("death_to_birth", &RipsPersistentHomology::death_to_birth)
         .def_readwrite("birth_to_death", &RipsPersistentHomology::birth_to_death)
         .def_readwrite("W", &RipsPersistentHomology::W)

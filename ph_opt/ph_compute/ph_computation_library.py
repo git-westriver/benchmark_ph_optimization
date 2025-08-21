@@ -68,13 +68,13 @@ class RipsPH(RipsPersistentHomology):
         self.get_ph_right: bool = False
         self.giotto_dgm: Optional[dict[str, Union[list[np.ndarray], tuple]]] = None
     
-    def compute_ph(self, enclosing_opt=True, emgergent_opt=True, clearing_opt=True, get_inv=False):
+    def compute_ph(self, enclosing_opt=True, emergent_opt=True, clearing_opt=True, get_inv=False):
         self.get_ph_left = True
-        return super().compute_ph(enclosing_opt, emgergent_opt, clearing_opt, get_inv)
+        return super().compute_ph(enclosing_opt, emergent_opt, clearing_opt, get_inv)
     
-    def compute_ph_right(self, enclosing_opt=True, emgergent_opt=True, get_inv=False):
+    def compute_ph_right(self, enclosing_opt=True, emergent_opt=True, get_inv=False):
         self.get_ph_right = True
-        return super().compute_ph_right(enclosing_opt, emgergent_opt, get_inv)
+        return super().compute_ph_right(enclosing_opt, emergent_opt, get_inv)
     
     def _call_giotto_ph(self):
         if type(self.dist_mat).__module__ == "torch":
