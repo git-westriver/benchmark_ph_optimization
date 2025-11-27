@@ -1,23 +1,12 @@
 from ..ph_compute.ph_computation_library import RipsPH, Bar
 from .singleton import singleton_loss_from_bar_to_target
+from .lib.wasserstein import _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad
+from .lib.stratified_gd import aux_loss_for_stratified_gradient
 
 import torch
 from torch.autograd import Function
 from gudhi.wasserstein import wasserstein_distance
 from typing import Optional
-
-def _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad(rph: RipsPH, ref_pd: list[torch.Tensor], dims: list[int], 
-                                                                        order: int = 2, X: Optional[torch.Tensor] = None):
-    # get the barcode
-    differentiable_barcode = [rph.get_differentiable_barcode(dim, X=X) for dim in dims]
-
-    # compute the loss
-    loss = torch.tensor(0.)
-    for dim_idx, dim in enumerate(dims):
-        loss += wasserstein_distance(differentiable_barcode[dim_idx], ref_pd[dim_idx], 
-                                     order=order, enable_autodiff=True, keep_essential_parts=False) ** order
-        
-    return loss
 
 def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
                                           order: int = 2, need_V_and_W: bool = False) -> list[tuple[int, Bar, torch.Tensor]]:
@@ -53,7 +42,8 @@ def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Te
 
     return rph, loss, target_info
 
-def _get_standard_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, ref_pd: list[torch.Tensor], dims: list[int], 
+def _get_standard_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, 
+                                           ref_pd: list[torch.Tensor], dims: list[int], 
                                            order: int = 2):
     with torch.enable_grad():
         _X = X.detach().clone().requires_grad_()
@@ -68,14 +58,24 @@ def _get_standard_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, ref_pd:
     return standard_df_dX
 
 def _get_improved_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, 
-                                           target_info: list[tuple[int, Bar, torch.Tensor]], grad_type: str, 
-                                           order: int = 2, sigma: float = 0.1, lmbd: float = 1e-5, all_X: Optional[torch.Tensor] = None):
-    with torch.enable_grad():
-        _X = X.detach().clone().requires_grad_()
-        _loss = torch.tensor(0., device=_X.device, dtype=_X.dtype)
-        for dim, bar_to_move, target in target_info:
-            _loss += singleton_loss_from_bar_to_target(_X, bar_to_move, target, grad_type=grad_type, order=order, normalize_grad=False, 
-                                                       dim=dim, rph=rph, sigma=sigma, lmbd=lmbd, all_X=all_X)
+                                           dims: list[int], ref_pds: list[torch.Tensor],
+                                           target_info: list[tuple[int, Bar, torch.Tensor]], 
+                                           grad_type: str, order: int = 2, 
+                                           sigma: float = 0.1, lmbd: float = 1e-5, 
+                                           eps: float = 1., n_strata: int = 5,    
+                                           all_X: Optional[torch.Tensor] = None):
+    if grad_type == "stratified":
+        with torch.enable_grad():
+            _X = X.detach().clone().requires_grad_()
+            _loss = aux_loss_for_stratified_gradient(_X, rph, dims, ref_pds, 
+                                                     order, eps, n_strata)
+    else:
+        with torch.enable_grad():
+            _X = X.detach().clone().requires_grad_()
+            _loss = torch.tensor(0., device=_X.device, dtype=_X.dtype)
+            for dim, bar_to_move, target in target_info:
+                _loss += singleton_loss_from_bar_to_target(_X, bar_to_move, target, grad_type=grad_type, order=order, normalize_grad=False, 
+                                                           dim=dim, rph=rph, sigma=sigma, lmbd=lmbd, all_X=all_X)
 
     if _loss.requires_grad:
         improved_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
@@ -86,17 +86,29 @@ def _get_improved_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH,
 
 class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
     @staticmethod
-    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, 
-                grad_type: Optional[str] = None, sigma: float = 0.1, lmbd: float = 1e-5, all_X: Optional[torch.Tensor] = None):
+    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
+                order: int = 2, grad_type: Optional[str] = None, 
+                sigma: float = 0.1, lmbd: float = 1e-5, 
+                eps: float = 1., n_strata: int = 5,
+                all_X: Optional[torch.Tensor] = None):
         # save the variables in the context
         if all_X is None:
             ctx.save_for_backward(X, all_X)
         else:
             ctx.save_for_backward(X)
-        ctx.ref_pd, ctx.dims, ctx.order, ctx.grad_type, ctx.sigma, ctx.lmbd = ref_pd, dims, order, grad_type, sigma, lmbd
+
+        ctx.ref_pd    = ref_pd
+        ctx.dims      = dims
+        ctx.order     = order
+        ctx.grad_type = grad_type
+        ctx.sigma     = sigma
+        ctx.lmbd      = lmbd
+        ctx.eps       = eps
+        ctx.n_strata  = n_strata
 
         # get RipsPH and loss
-        rph, loss, target_info = _get_rph_loss_targets_for_wasserstein(X, ref_pd, dims, order, need_V_and_W=(grad_type == 'bigstep'))
+        rph, loss, target_info = _get_rph_loss_targets_for_wasserstein(X, ref_pd, dims, order, 
+                                                                       need_V_and_W=(grad_type == 'bigstep'))
 
         # operation to make grad_fn works
         loss = loss + X.sum() * 0.
@@ -115,11 +127,21 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
         else:
             X = ctx.saved_tensors[0]
             all_X = None
-        ref_pd, dims, order, grad_type, sigma, lmbd = ctx.ref_pd, ctx.dims, ctx.order, ctx.grad_type, ctx.sigma, ctx.lmbd
+        
+        ref_pd, dims = ctx.ref_pd, ctx.dims
+        order, grad_type = ctx.order, ctx.grad_type
+        sigma, lmbd = ctx.sigma, ctx.lmbd
+        eps, n_strata = ctx.eps, ctx.n_strata
         rph, target_info = ctx.rph, ctx.target_info
 
         # compute the un-normalized gradient
-        improved_df_dX = _get_improved_gradient_for_wasserstein(X, rph, target_info, grad_type, order, sigma, lmbd, all_X)
+        improved_df_dX = _get_improved_gradient_for_wasserstein(X, rph, 
+                                                                dims, ref_pd, 
+                                                                target_info, 
+                                                                grad_type, order, 
+                                                                sigma, lmbd, 
+                                                                eps, n_strata,
+                                                                all_X)
 
         # if improved_df_dX is not zero, normalize it to have the same norm as standard_dF_df
         if (improved_df_dX.norm() > 0) and (grad_type != 'standard'):
@@ -135,8 +157,11 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
             return dF_dX, None, None, None, None, None, None, None
         
 
-def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], order: int = 2, grad_type: str = "standard", 
-                                           sigma: float = 0.1, lmbd: float = 1e-5, all_X: Optional[torch.Tensor] = None):
+def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
+                                           order: int = 2, grad_type: str = "standard", 
+                                           sigma: float = 0.1, lmbd: float = 1e-5, 
+                                           eps: float = 1., n_strata: int = 5,
+                                           all_X: Optional[torch.Tensor] = None):
     """
     Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
     with improved gradient using specialized method.
@@ -148,10 +173,16 @@ def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.T
         order (int) : the order of Wasserstein distance.
         grad_type (str) : the method to compute the gradient. One of ['standard', 'bigstep', 'continuation', 'diffeo'].
         sigma (float) : the bandwidth of the Gaussian kernel. Only used when `method` is 'diffeo'.
+        eps (float): the maximum distance searched in Dijkstra's algorithm. Only used when `method` is 'stratified'.
+        n_strata (int): the number of strata to consider. Only used when `method` is 'stratified'.
         all_X (torch.Tensor) : the point cloud for diffeomorphic interpolation. shape=(# of points, dim). Only used when `method` is 'diffeo' and `all_X` is not `None`.
         
     Returns:
         loss: the Wasserstein distance.
     """
 
-    return _powered_wasserstein_distance_one_sided_with_improved_grad.apply(X, ref_pd, dims, order, grad_type, sigma, lmbd, all_X)
+    return _powered_wasserstein_distance_one_sided_with_improved_grad.apply(X, ref_pd, dims, 
+                                                                            order, grad_type, 
+                                                                            sigma, lmbd, 
+                                                                            eps, n_strata,
+                                                                            all_X)
