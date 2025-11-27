@@ -4,6 +4,7 @@ from .wasserstein import _powered_wasserstein_distance_one_sided_from_rph_with_s
 import torch
 import heapq
 import itertools
+from itertools import combinations
 
 def aux_loss_for_stratified_gradient(
     X: torch.Tensor, 
@@ -59,14 +60,14 @@ def dijkstra_over_swaps(
     dist_mat: torch.Tensor,
     n_strata: int,
     eps: float,
-    max_expansions: int = None,
+    one_swap_only: bool = True
 ) -> list[torch.Tensor]:
     """
     Parameters:
         dist_mat : (num_pts, num_pts) の距離行列 (torch.Tensor)
         n_strata : 見つけたいノード数
         eps : しきい値 (2*eps を超えるノードは無視)
-        max_expansions : 展開するノード数の上限 (計算量対策, None なら制限なし)
+        one_swap_only : 現在の距離行列から 1 swap で到達できるノードのみを探索．
 
     Returns: 
         list of torch.Tensor; each element represents the distance matrix of a stratum
@@ -111,42 +112,59 @@ def dijkstra_over_swaps(
 
     start_cost = 0. # perm_to_cost(start_perm)
 
-    # Dijkstra 風ヒープ（距離の小さい順に取り出す）
-    heap = []
-    counter = itertools.count()  # tie-breaker
-    heapq.heappush(heap, (start_cost, next(counter), start_perm))
-
-    visited = set()
-    results = []
-
-    expansions = 0
-
-    while heap and len(results) < n_strata:
-        cost, _, perm = heapq.heappop(heap)
-
-        key = tuple(perm.tolist())
-        if key in visited:
-            continue
-        visited.add(key)
-
-        # しきい値チェック
-        if cost <= 2.0 * eps:
-            # 結果に追加（元の行列も cost=0 なのでここで入る）
-            results.append({"cost": cost, "perm": perm.clone()})
-        else:
-            # このノード自体が 2*eps を超えるなら「無視」
-            # そこから先の近傍も展開しない
-            continue
-
-        # ノード展開数の上限
-        if max_expansions is not None and expansions >= max_expansions:
-            break
-        expansions += 1
-
+    if one_swap_only:
         # 1 swap で到達できる近傍ノードをすべて生成
-        # num_pairs が大きいと O(num_pairs^2) なので重い点に注意
-        for i in range(num_pairs):
+        # コストが小さい n_strata 個のみを保存
+        heap = []
+        heapq.heappush(heap, (- start_cost, 0, 0)) # -cost, i, j
+        for i in range(num_pairs): 
+            if i % 1000 == 0: print(i)
             for j in range(i + 1, num_pairs):
+                cost = (d0[i] - d0[j]) ** 2
+                if cost <= eps:
+                    heapq.heappush(heap, (-cost, i, j))
+                    if len(heap) > n_strata:
+                        heapq.heappop(heap) # 最もコストが大きいものを取り出す
+
+        # dist_mat が勾配をもつことが想定されるので，dist_mat を使って，permutation 後の距離行列を再構成
+        ret = []
+        for _, i, j in heap:
+            perm = start_perm.clone()
+            perm[i], perm[j] = perm[j], perm[i]
+            d_vec = d0[perm]  # shape: (num_pairs,)
+            D = vector_to_symmetric_matrix(d_vec, idx, num_pts).to(device)
+            ret.append(D)
+        return ret
+
+    else:
+        # Dijkstra 風ヒープ（距離の小さい順に取り出す）
+        heap = []
+        counter = itertools.count()  # tie-breaker
+        heapq.heappush(heap, (start_cost, next(counter), start_perm))
+
+        visited = set()
+        results = []
+
+        while heap and len(results) < n_strata:
+            cost, _, perm = heapq.heappop(heap)
+
+            key = tuple(perm.tolist())
+            if key in visited:
+                continue
+            visited.add(key)
+
+            # しきい値チェック
+            if cost <= 2.0 * eps:
+                # 結果に追加（元の行列も cost=0 なのでここで入る）
+                results.append({"cost": cost, "perm": perm.clone()})
+            else:
+                # このノード自体が 2*eps を超えるなら「無視」
+                # そこから先の近傍も展開しない
+                continue
+
+            # 1 swap で到達できる近傍ノードをすべて生成
+            # num_pairs が大きいと O(num_pairs^2) なので重い点に注意
+            for i, j in combinations(range(num_pairs), 2):
                 new_perm = perm.clone()
                 new_perm[i], new_perm[j] = new_perm[j], new_perm[i]
 
@@ -158,14 +176,14 @@ def dijkstra_over_swaps(
                 if new_cost <= 2.0 * eps:
                     heapq.heappush(heap, (new_cost, next(counter), new_perm))
 
-    # 念のため cost でソートして返す
-    results.sort(key=lambda x: x["cost"])
+        # 念のため cost でソートして返す
+        results.sort(key=lambda x: x["cost"])
 
-    # dist_mat が勾配をもつことが想定されるので，dist_mat を使って，permutation 後の距離行列を再構成
-    ret = []
-    for result in results:
-        perm = result["perm"]
-        d_vec = d0[perm]  # shape: (num_pairs,)
-        D = vector_to_symmetric_matrix(d_vec, idx, num_pts).to(device)
-        ret.append(D)
-    return ret
+        # dist_mat が勾配をもつことが想定されるので，dist_mat を使って，permutation 後の距離行列を再構成
+        ret = []
+        for result in results:
+            perm = result["perm"]
+            d_vec = d0[perm]  # shape: (num_pairs,)
+            D = vector_to_symmetric_matrix(d_vec, idx, num_pts).to(device)
+            ret.append(D)
+        return ret

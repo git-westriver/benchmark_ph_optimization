@@ -92,7 +92,7 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
                 eps: float = 1., n_strata: int = 5,
                 all_X: Optional[torch.Tensor] = None):
         # save the variables in the context
-        if all_X is None:
+        if all_X is not None:
             ctx.save_for_backward(X, all_X)
         else:
             ctx.save_for_backward(X)
@@ -128,11 +128,11 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
             X = ctx.saved_tensors[0]
             all_X = None
         
-        ref_pd, dims = ctx.ref_pd, ctx.dims
-        order, grad_type = ctx.order, ctx.grad_type
-        sigma, lmbd = ctx.sigma, ctx.lmbd
-        eps, n_strata = ctx.eps, ctx.n_strata
-        rph, target_info = ctx.rph, ctx.target_info
+        ref_pd, dims = ctx.ref_pd, ctx.dims             # information of reference PD
+        order, grad_type = ctx.order, ctx.grad_type     # basic information of the loss
+        sigma, lmbd = ctx.sigma, ctx.lmbd               # parameters for Diffeo
+        eps, n_strata = ctx.eps, ctx.n_strata           # parameters for Stratified GD
+        rph, target_info = ctx.rph, ctx.target_info     # information of current PD and directions to move
 
         # compute the un-normalized gradient
         improved_df_dX = _get_improved_gradient_for_wasserstein(X, rph, 
@@ -152,9 +152,9 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
         dF_dX = dF_df * improved_df_dX
 
         if all_X_provided and (grad_type == 'diffeo'):
-            return None, None, None, None, None, None, None, dF_dX
+            return None, None, None, None, None, None, None, None, None, dF_dX
         else:
-            return dF_dX, None, None, None, None, None, None, None
+            return dF_dX, None, None, None, None, None, None, None, None, None
         
 
 def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
@@ -173,6 +173,7 @@ def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.T
         order (int) : the order of Wasserstein distance.
         grad_type (str) : the method to compute the gradient. One of ['standard', 'bigstep', 'continuation', 'diffeo'].
         sigma (float) : the bandwidth of the Gaussian kernel. Only used when `method` is 'diffeo'.
+        lmbd (float): regularization parameter for kernel ridge regression. Only used when `method` is `diffeo`.
         eps (float): the maximum distance searched in Dijkstra's algorithm. Only used when `method` is 'stratified'.
         n_strata (int): the number of strata to consider. Only used when `method` is 'stratified'.
         all_X (torch.Tensor) : the point cloud for diffeomorphic interpolation. shape=(# of points, dim). Only used when `method` is 'diffeo' and `all_X` is not `None`.
