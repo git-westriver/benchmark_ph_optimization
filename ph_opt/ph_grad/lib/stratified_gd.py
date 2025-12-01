@@ -25,18 +25,23 @@ def aux_loss_for_stratified_gradient(
         ref_pds : 各次元に対応する参照パーシステント
         order : ワッサースタイン距離の次数
     """
-    dist_mat = rph.dist_mat
+    dist_mat = torch.cdist(X, X)
     maxdim = max(dims)
     nearby_dist_mats = dijkstra_over_swaps(dist_mat, n_strata, eps)
 
     loss = torch.tensor(0., device=X.device, dtype=X.dtype)
     for _dist_mat in nearby_dist_mats:
         rph = RipsPH(_dist_mat, maxdim=maxdim, distance_matrix=True)
-        loss += _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad(
-            rph=rph, ref_pd=ref_pds, dims=dims, order=order
+        rph._call_giotto_ph()
+        assert rph.giotto_dgm is not None
+        _loss = _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad(
+            rph=rph, ref_pd=ref_pds, dims=dims, order=order, 
+            X=X     # X を与えると，ペアはそのままで，X の距離行列で PH を計算
         )
+        assert _loss.requires_grad
+        loss += _loss
     loss /= len(nearby_dist_mats)
-
+    
     return loss
 
 def vector_to_symmetric_matrix(
@@ -113,22 +118,24 @@ def dijkstra_over_swaps(
     start_cost = 0. # perm_to_cost(start_perm)
 
     if one_swap_only:
-        # 1 swap で到達できる近傍ノードをすべて生成
-        # コストが小さい n_strata 個のみを保存
-        heap = []
-        heapq.heappush(heap, (- start_cost, 0, 0)) # -cost, i, j
-        for i in range(num_pairs): 
-            if i % 1000 == 0: print(i)
-            for j in range(i + 1, num_pairs):
-                cost = (d0[i] - d0[j]) ** 2
-                if cost <= eps:
-                    heapq.heappush(heap, (-cost, i, j))
-                    if len(heap) > n_strata:
-                        heapq.heappop(heap) # 最もコストが大きいものを取り出す
+        costs = (d0[idx_i] - d0[idx_j]) ** 2
+        mask = costs <= eps
+
+        masked_idx_i = idx_i[mask]
+        masked_idx_j = idx_j[mask]
+        masked_costs = costs[mask]
+
+         # コストが小さい順に n_strata 件だけ取得
+        # smallest n_strata -> largest of (-costs)
+        k = min(n_strata, masked_costs.numel())
+        vals, order = torch.topk(masked_costs, k=k, largest=False)
+        i_sel = masked_idx_i[order]
+        j_sel = masked_idx_j[order]
 
         # dist_mat が勾配をもつことが想定されるので，dist_mat を使って，permutation 後の距離行列を再構成
         ret = []
-        for _, i, j in heap:
+        for i, j in zip(i_sel, j_sel):
+            d0 = dist_mat[idx_i, idx_j]  # shape: (num_pairs,), 勾配あり
             perm = start_perm.clone()
             perm[i], perm[j] = perm[j], perm[i]
             d_vec = d0[perm]  # shape: (num_pairs,)
@@ -182,6 +189,7 @@ def dijkstra_over_swaps(
         # dist_mat が勾配をもつことが想定されるので，dist_mat を使って，permutation 後の距離行列を再構成
         ret = []
         for result in results:
+            d0 = dist_mat[idx_i, idx_j]  # shape: (num_pairs,), 勾配あり
             perm = result["perm"]
             d_vec = d0[perm]  # shape: (num_pairs,)
             D = vector_to_symmetric_matrix(d_vec, idx, num_pts).to(device)
