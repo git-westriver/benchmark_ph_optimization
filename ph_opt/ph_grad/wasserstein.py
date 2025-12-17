@@ -6,7 +6,7 @@ from .lib.stratified_gd import aux_loss_for_stratified_gradient
 import torch
 from torch.autograd import Function
 from gudhi.wasserstein import wasserstein_distance
-from typing import Optional
+from typing import Optional, Literal
 
 def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
                                           order: int = 2, need_V_and_W: bool = False) -> list[tuple[int, Bar, torch.Tensor]]:
@@ -74,8 +74,13 @@ def _get_improved_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH,
             _X = X.detach().clone().requires_grad_()
             _loss = torch.tensor(0., device=_X.device, dtype=_X.dtype)
             for dim, bar_to_move, target in target_info:
-                _loss += singleton_loss_from_bar_to_target(_X, bar_to_move, target, grad_type=grad_type, order=order, normalize_grad=False, 
-                                                           dim=dim, rph=rph, sigma=sigma, lmbd=lmbd, all_X=all_X)
+                _loss += singleton_loss_from_bar_to_target(
+                    _X, bar_to_move, target, 
+                    grad_type=grad_type, 
+                    order=order, 
+                    normalize_grad=False, # should be False (normalization will be done in this code)
+                    dim=dim, rph=rph, sigma=sigma, lmbd=lmbd, all_X=all_X
+                )
 
     if _loss.requires_grad:
         improved_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
@@ -88,6 +93,7 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
     @staticmethod
     def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
                 order: int = 2, grad_type: Optional[str] = None, 
+                clip_grad: Literal["l2", "linf", "none"] = "l2", 
                 sigma: float = 0.1, lmbd: float = 1e-5, 
                 eps: float = 1., n_strata: int = 5,
                 all_X: Optional[torch.Tensor] = None):
@@ -97,14 +103,15 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
         else:
             ctx.save_for_backward(X)
 
-        ctx.ref_pd    = ref_pd
-        ctx.dims      = dims
-        ctx.order     = order
-        ctx.grad_type = grad_type
-        ctx.sigma     = sigma
-        ctx.lmbd      = lmbd
-        ctx.eps       = eps
-        ctx.n_strata  = n_strata
+        ctx.ref_pd      = ref_pd
+        ctx.dims        = dims
+        ctx.order       = order
+        ctx.grad_type   = grad_type
+        ctx.clip_grad   = clip_grad
+        ctx.sigma       = sigma
+        ctx.lmbd        = lmbd
+        ctx.eps         = eps
+        ctx.n_strata    = n_strata
 
         # get RipsPH and loss
         rph, loss, target_info = _get_rph_loss_targets_for_wasserstein(X, ref_pd, dims, order, 
@@ -130,6 +137,7 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
         
         ref_pd, dims = ctx.ref_pd, ctx.dims             # information of reference PD
         order, grad_type = ctx.order, ctx.grad_type     # basic information of the loss
+        clip_grad = ctx.clip_grad                       # whether normalize the gradient or not
         sigma, lmbd = ctx.sigma, ctx.lmbd               # parameters for Diffeo
         eps, n_strata = ctx.eps, ctx.n_strata           # parameters for Stratified GD
         rph, target_info = ctx.rph, ctx.target_info     # information of current PD and directions to move
@@ -144,21 +152,28 @@ class _powered_wasserstein_distance_one_sided_with_improved_grad(Function):
                                                                 all_X)
 
         # if improved_df_dX is not zero, normalize it to have the same norm as standard_dF_df
-        if (improved_df_dX.norm() > 0) and (grad_type != 'standard'):
+        if (improved_df_dX.norm() > 0) and (grad_type != 'standard') and (clip_grad != "none"):
             standard_df_dX = _get_standard_gradient_for_wasserstein(X, rph, ref_pd, dims, order)
-            improved_df_dX = (improved_df_dX / improved_df_dX.norm()) * standard_df_dX.norm()
+            if clip_grad == "l2":
+                improved_df_dX = (improved_df_dX / improved_df_dX.norm()) * standard_df_dX.norm()
+            elif clip_grad == "linf":
+                max_grad = standard_df_dX.abs().max()
+                improved_df_dX = improved_df_dX.clamp(min=-max_grad, max=max_grad)
+            else:
+                raise NotImplementedError(f"clip_grad = {clip_grad} is not implemented.")
 
         # compute the gradient
         dF_dX = dF_df * improved_df_dX
 
         if all_X_provided and (grad_type == 'diffeo'):
-            return None, None, None, None, None, None, None, None, None, dF_dX
+            return None, None, None, None, None, None, None, None, None, None, dF_dX
         else:
-            return dF_dX, None, None, None, None, None, None, None, None, None
+            return dF_dX, None, None, None, None, None, None, None, None, None, None
         
 
 def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
                                            order: int = 2, grad_type: str = "standard", 
+                                           clip_grad: Literal["l2", "linf", "none"] = "l2",
                                            sigma: float = 0.1, lmbd: float = 1e-5, 
                                            eps: float = 1., n_strata: int = 5,
                                            all_X: Optional[torch.Tensor] = None):
@@ -183,7 +198,7 @@ def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.T
     """
 
     return _powered_wasserstein_distance_one_sided_with_improved_grad.apply(X, ref_pd, dims, 
-                                                                            order, grad_type, 
+                                                                            order, grad_type, clip_grad,
                                                                             sigma, lmbd, 
                                                                             eps, n_strata,
                                                                             all_X)

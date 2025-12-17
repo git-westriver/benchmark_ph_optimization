@@ -20,3 +20,4 @@ notebooks/private
 
 .venv/
 *.lock
+*.pt
