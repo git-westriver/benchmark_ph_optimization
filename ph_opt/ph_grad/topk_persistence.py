@@ -4,11 +4,16 @@ from .lib.stratified_gd import dijkstra_over_swaps
 
 import torch
 from torch.autograd import Function
-from gudhi.wasserstein import wasserstein_distance
 from typing import Optional, Literal
 
-def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
-                                          order: int = 2, need_V_and_W: bool = False) -> list[tuple[int, Bar, torch.Tensor]]:
+def _get_rph_loss_targets_for_topk_persistence(
+    X: torch.Tensor, 
+    dims: list[int], 
+    order: int = 2, 
+    topk: Optional[int] = None,
+    need_V_and_W: bool = False
+) -> list[tuple[int, Bar, torch.Tensor]]:
+
     target_info = []
 
     # compute RipsPH
@@ -20,51 +25,78 @@ def _get_rph_loss_targets_for_wasserstein(X: torch.Tensor, ref_pd: list[torch.Te
         rph.compute_ph(clearing_opt=False, get_inv=True)
         rph.compute_ph_right(get_inv=True)
 
-    for dim, _ref_pd in zip(dims, ref_pd):
-        # get bars and matching to ref_pd
-        bars = rph.get_bar_objects(dim)
-        barcode = torch.tensor([[bar.birth_time, bar.death_time] for bar in bars])
-        loss, matching = wasserstein_distance(barcode, _ref_pd, order=order, matching=True, keep_essential_parts=False)
+    loss = torch.tensor(0.)
 
-        # obtain the targets
-        for i, j in matching:
-            if i == -1:
-                continue
-            elif j == -1:
-                bar_to_move: Bar = bars[i]
-                _target = (bar_to_move.birth_time + bar_to_move.death_time) / 2
-                target = torch.tensor([_target, _target])
-            else:
-                bar_to_move = bars[i]
-                target = _ref_pd[j]
-            target_info.append((dim, bar_to_move, target))
+    for dim in dims:
+        # get bars and sort them by the decreasing order of persistence
+        bars = rph.get_bar_objects(dim)
+        bars = sorted(bars, key=lambda bar: bar.death_time - bar.birth_time, reverse=True)
+
+        cnt = 0 # number of bars added to target_info
+        for bar in bars:
+            loss += ( (bar.death_time - bar.birth_time) / (2 ** 0.5) ) ** order
+            coord = (bar.birth_time + bar.death_time) / 2
+            target = torch.tensor([coord, coord])
+            target_info.append((dim, bar, target))
+            cnt += 1
+
+            if cnt >= topk:
+                break
 
     return rph, loss, target_info
 
 # ----- standard wasserstein loss & its gradient -----
 
-def _wasserstein_loss_with_standard_grad(rph: RipsPH, ref_pd: list[torch.Tensor], dims: list[int], 
-                                                                        order: int = 2, X: Optional[torch.Tensor] = None):
-    # get the barcode
-    differentiable_barcode = [rph.get_differentiable_barcode(dim, X=X) for dim in dims]
+def _topk_persistence_loss_with_standard_grad(
+    rph: RipsPH, 
+    target_info: list[tuple[int, Bar, torch.Tensor]], 
+    order: int = 2, 
+    X: Optional[torch.Tensor] = None
+) -> torch.Tensor:
+
+    # get the (differentiable) distance matrix
+    if X is not None:
+        dist_mat = torch.cdist(X, X)
+    else:
+        dist_mat = rph.dist_mat
+    assert dist_mat.requires_grad
 
     # compute the loss
     loss = torch.tensor(0.)
-    for dim_idx, dim in enumerate(dims):
-        loss += wasserstein_distance(differentiable_barcode[dim_idx], ref_pd[dim_idx], 
-                                     order=order, enable_autodiff=True, keep_essential_parts=False) ** order
+    for dim, bar_to_move, target in target_info:
+        # get the birth time and death time
+        if bar_to_move.birth_v2 is None:
+            birth_time = torch.tensor(0.)
+        else:
+            v1, v2 = bar_to_move.birth_v1, bar_to_move.birth_v2
+            birth_time = dist_mat[v1, v2]
+        
+        v1, v2 = bar_to_move.death_v1, bar_to_move.death_v2
+        death_time = dist_mat[v1, v2]
+
+        # compute the (differentiable) loss
+        loss += ( (death_time - birth_time) / (2 ** 0.5) ) ** order
         
     return loss
 
-def _get_standard_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, 
-                                           ref_pd: list[torch.Tensor], dims: list[int], 
-                                           order: int = 2):
+def _get_standard_gradient_for_topk_persistence(
+    X: torch.Tensor, 
+    rph: RipsPH, 
+    target_info: list[tuple[int, Bar, torch.Tensor]], 
+    order: int = 2
+) -> torch.Tensor:
+
     with torch.enable_grad():
         _X = X.detach().clone().requires_grad_()
-        _loss = _wasserstein_loss_with_standard_grad(rph, ref_pd, dims, order, _X)
+        _loss = _topk_persistence_loss_with_standard_grad(
+            rph, target_info, order, 
+            X=_X    # X を与えて barcode に勾配を復活させる
+        )
     
     if _loss.requires_grad:
-        standard_df_dX, = torch.autograd.grad(outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False)
+        standard_df_dX, = torch.autograd.grad(
+            outputs=_loss, inputs=(_X,), retain_graph=False, create_graph=False
+        )
         standard_df_dX = torch.nan_to_num(standard_df_dX, nan=0.0)
     else:
         standard_df_dX = torch.zeros_like(_X)
@@ -73,11 +105,10 @@ def _get_standard_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH,
 
 # ----- improved gradient -----
 
-def aux_loss_for_stratified_gradient_for_wasserstein(
+def aux_loss_for_stratified_gradient_for_topk_persistence(
     X: torch.Tensor, 
     rph: RipsPH, 
-    dims: list[int], 
-    ref_pds: list[torch.Tensor], 
+    target_info: list[tuple[int, Bar, torch.Tensor]], 
     order: int, 
     eps: float,
     n_strata: int,
@@ -87,12 +118,12 @@ def aux_loss_for_stratified_gradient_for_wasserstein(
 
     Parameters:
         X : (num_pts, dim) の点群データ (torch.Tensor)
-        rph : RipsPH オブジェクト (事前に compute_ph が呼ばれていること)
-        dims : 対応する次元のリスト
-        ref_pds : 各次元に対応する参照パーシステント
+        rph : X の RipsPH
+        target_info : (dim, bar, target) のリスト．各 bar の向かうべき場所を示す．
         order : ワッサースタイン距離の次数
     """
     dist_mat = torch.cdist(X, X)
+    dims = list(set([dim for dim, bar, target in target_info]))
     maxdim = max(dims)
     nearby_dist_mats = dijkstra_over_swaps(dist_mat, n_strata, eps)
 
@@ -101,33 +132,45 @@ def aux_loss_for_stratified_gradient_for_wasserstein(
         rph = RipsPH(_dist_mat, maxdim=maxdim, distance_matrix=True)
         rph._call_giotto_ph()
         assert rph.giotto_dgm is not None
-        _loss = _wasserstein_loss_with_standard_grad(
-            rph=rph, ref_pd=ref_pds, dims=dims, order=order, 
+
+        _loss = _topk_persistence_loss_with_standard_grad(
+            rph=rph, target_info=target_info, order=order,
             X=X     # X を与えると，ペアはそのままで，X の距離行列で PH を計算
         )
         assert _loss.requires_grad
+
         loss += _loss
+
     loss /= len(nearby_dist_mats)
     
     return loss
 
-def _get_improved_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH, 
-                                           dims: list[int], ref_pds: list[torch.Tensor],
-                                           target_info: list[tuple[int, Bar, torch.Tensor]], 
-                                           grad_type: str, order: int = 2, 
-                                           sigma: float = 0.1, lmbd: float = 1e-5, 
-                                           eps: float = 1., n_strata: int = 5,    
-                                           all_X: Optional[torch.Tensor] = None):
+def _get_improved_gradient_for_topk_persistence(
+    X: torch.Tensor, 
+    rph: RipsPH, 
+    target_info: list[tuple[int, Bar, torch.Tensor]], 
+    grad_type: str, 
+    order: int = 2, 
+    sigma: float = 0.1, 
+    lmbd: float = 1e-5, 
+    eps: float = 1., 
+    n_strata: int = 5,  
+    all_X: Optional[torch.Tensor] = None
+) -> torch.Tensor:
+
     if grad_type == "stratified":
         with torch.enable_grad():
             _X = X.detach().clone().requires_grad_()
-            _loss = aux_loss_for_stratified_gradient_for_wasserstein(
-                _X, rph, dims, ref_pds, order, eps, n_strata
+            _loss = aux_loss_for_stratified_gradient_for_topk_persistence( # TODO
+                _X, rph, target_info, order, 
+                eps, n_strata # parameters specific for "stratified"
             )
-    else:
+
+    else: # same as wasserstein
         with torch.enable_grad():
             _X = X.detach().clone().requires_grad_()
             _loss = torch.tensor(0., device=_X.device, dtype=_X.dtype)
+
             for dim, bar_to_move, target in target_info:
                 _loss += singleton_loss_from_bar_to_target(
                     _X, bar_to_move, target, 
@@ -146,21 +189,29 @@ def _get_improved_gradient_for_wasserstein(X: torch.Tensor, rph: RipsPH,
 
 # ----- interfaces -----
 
-class _wasserstein_loss_with_improved_grad(Function):
+class _topk_persistence_loss_with_improved_grad(Function):
     @staticmethod
-    def forward(ctx, X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
-                order: int = 2, grad_type: Optional[str] = None, 
-                clip_grad: Literal["l2", "linf", "none"] = "l2", 
-                sigma: float = 0.1, lmbd: float = 1e-5, 
-                eps: float = 1., n_strata: int = 5,
-                all_X: Optional[torch.Tensor] = None):
+    def forward(
+        ctx, 
+        X: torch.Tensor, 
+        dims: list[int], 
+        order: int = 2, 
+        topk: Optional[int] = None,
+        grad_type: Optional[str] = None, 
+        clip_grad: Literal["l2", "linf", "none"] = "l2", 
+        sigma: float = 0.1, 
+        lmbd: float = 1e-5, 
+        eps: float = 1., 
+        n_strata: int = 5,
+        all_X: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+
         # save the variables in the context
         if all_X is not None:
             ctx.save_for_backward(X, all_X)
         else:
             ctx.save_for_backward(X)
 
-        ctx.ref_pd      = ref_pd
         ctx.dims        = dims
         ctx.order       = order
         ctx.grad_type   = grad_type
@@ -171,8 +222,9 @@ class _wasserstein_loss_with_improved_grad(Function):
         ctx.n_strata    = n_strata
 
         # get RipsPH and loss
-        rph, loss, target_info = _get_rph_loss_targets_for_wasserstein(X, ref_pd, dims, order, 
-                                                                       need_V_and_W=(grad_type == 'bigstep'))
+        rph, loss, target_info = _get_rph_loss_targets_for_topk_persistence(
+            X, dims, order, topk, need_V_and_W=(grad_type == 'bigstep')
+        )
 
         # operation to make grad_fn works
         loss = loss + X.sum() * 0.
@@ -192,7 +244,7 @@ class _wasserstein_loss_with_improved_grad(Function):
             X = ctx.saved_tensors[0]
             all_X = None
         
-        ref_pd, dims = ctx.ref_pd, ctx.dims             # information of reference PD
+        dims = ctx.dims                                 # dimensions of PH
         order, grad_type = ctx.order, ctx.grad_type     # basic information of the loss
         clip_grad = ctx.clip_grad                       # whether normalize the gradient or not
         sigma, lmbd = ctx.sigma, ctx.lmbd               # parameters for Diffeo
@@ -200,17 +252,14 @@ class _wasserstein_loss_with_improved_grad(Function):
         rph, target_info = ctx.rph, ctx.target_info     # information of current PD and directions to move
 
         # compute the un-normalized gradient
-        improved_df_dX = _get_improved_gradient_for_wasserstein(X, rph, 
-                                                                dims, ref_pd, 
-                                                                target_info, 
-                                                                grad_type, order, 
-                                                                sigma, lmbd, 
-                                                                eps, n_strata,
-                                                                all_X)
+        improved_df_dX = _get_improved_gradient_for_topk_persistence(
+            X, rph, target_info, grad_type, order, sigma, lmbd, eps, n_strata, all_X
+        )
 
-        # if improved_df_dX is not zero, normalize it to have the same norm as standard_dF_df
+        # if improved_df_dX is not zero, clip the gradient using the information of standard_dF_df
         if (improved_df_dX.norm() > 0) and (grad_type != 'standard') and (clip_grad != "none"):
-            standard_df_dX = _get_standard_gradient_for_wasserstein(X, rph, ref_pd, dims, order)
+            standard_df_dX = _get_standard_gradient_for_topk_persistence(X, rph, target_info, order)
+
             if clip_grad == "l2":
                 improved_df_dX = (improved_df_dX / improved_df_dX.norm()) * standard_df_dX.norm()
             elif clip_grad == "linf":
@@ -227,11 +276,11 @@ class _wasserstein_loss_with_improved_grad(Function):
         else:
             return dF_dX, None, None, None, None, None, None, None, None, None, None
 
-def wasserstein_loss(
+def topk_persistence_loss(
     X: torch.Tensor, 
-    ref_pd: list[torch.Tensor], 
     dims: list[int], 
     order: int = 2, 
+    topk: Optional[int] = None,
     grad_type: str = "standard", 
     clip_grad: Literal["l2", "linf", "none"] = "l2",
     sigma: float = 0.1, 
@@ -241,15 +290,16 @@ def wasserstein_loss(
     all_X: Optional[torch.Tensor] = None
 ) -> torch.Tensor: 
     """
-    Compute the Wasserstein distance between the persistent diagram of `X` and `ref_pd`
-    with improved gradient using specialized method.
+    Compute the sum of the persistence of points in the PD of X. 
+    If you specify `topk`, the loss is computed using only the top-k most persistent points.
 
     Parameters:
         X (torch.Tensor) : point cloud. shape=(# of points, dim)
-        ref_pd (list[torch.Tensor]) : the reference persistent diagram. shape=(#bars, 2)
         dims (list[int]) : list of dimensions of the persistent homology.
         order (int) : the order of Wasserstein distance.
+        topk (int | None): If not None, sum only the top-k most persistent points (largest death - birth) in each persistence diagram.
         grad_type (str) : the method to compute the gradient. One of ['standard', 'bigstep', 'continuation', 'diffeo'].
+        clip_grad ("l2" | "linf" | "none") : Gradient clipping mode. "l2" clips by L2 norm, "linf" clips elementwise by L^\infty, and "none" disables clipping.
         sigma (float) : the bandwidth of the Gaussian kernel. Only used when `method` is 'diffeo'.
         lmbd (float): regularization parameter for kernel ridge regression. Only used when `method` is `diffeo`.
         eps (float): the maximum distance searched in Dijkstra's algorithm. Only used when `method` is 'stratified'.
@@ -257,22 +307,12 @@ def wasserstein_loss(
         all_X (torch.Tensor) : the point cloud for diffeomorphic interpolation. shape=(# of points, dim). Only used when `method` is 'diffeo' and `all_X` is not `None`.
         
     Returns:
-        loss: the Wasserstein distance.
+        loss: the sum of the persistence.
     """
 
-    return _wasserstein_loss_with_improved_grad.apply(
-        X, ref_pd, dims, order, grad_type, clip_grad, sigma, lmbd, eps, n_strata, all_X
-    )
+    # if (topk is not None) and len(dims) > 1:
+    #     raise ValueError("Need to specify a unique dimension if topk is not None.")
 
-def powered_wasserstein_distance_one_sided(X: torch.Tensor, ref_pd: list[torch.Tensor], dims: list[int], 
-                                           order: int = 2, grad_type: str = "standard", 
-                                           clip_grad: Literal["l2", "linf", "none"] = "l2",
-                                           sigma: float = 0.1, lmbd: float = 1e-5, 
-                                           eps: float = 1., n_strata: int = 5,
-                                           all_X: Optional[torch.Tensor] = None):
-    return wasserstein_loss(
-        X, ref_pd, dims, 
-        order = order, grad_type = grad_type, clip_grad = clip_grad, 
-        sigma = sigma, lmbd = lmbd, eps = eps, n_strata = n_strata, 
-        all_X = all_X
+    return _topk_persistence_loss_with_improved_grad.apply(
+        X, dims, order, topk, grad_type, clip_grad, sigma, lmbd, eps, n_strata, all_X
     )

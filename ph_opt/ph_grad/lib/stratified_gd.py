@@ -1,48 +1,9 @@
 from ...ph_compute.ph_computation_library import RipsPH, Bar
-from .wasserstein import _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad
 
 import torch
 import heapq
 import itertools
 from itertools import combinations
-
-def aux_loss_for_stratified_gradient(
-    X: torch.Tensor, 
-    rph: RipsPH, 
-    dims: list[int], 
-    ref_pds: list[torch.Tensor], 
-    order: int, 
-    eps: float,
-    n_strata: int,
-) -> torch.Tensor:
-    """
-    Stratified gradient 用の補助損失を計算する。
-
-    Parameters:
-        X : (num_pts, dim) の点群データ (torch.Tensor)
-        rph : RipsPH オブジェクト (事前に compute_ph が呼ばれていること)
-        dims : 対応する次元のリスト
-        ref_pds : 各次元に対応する参照パーシステント
-        order : ワッサースタイン距離の次数
-    """
-    dist_mat = torch.cdist(X, X)
-    maxdim = max(dims)
-    nearby_dist_mats = dijkstra_over_swaps(dist_mat, n_strata, eps)
-
-    loss = torch.tensor(0., device=X.device, dtype=X.dtype)
-    for _dist_mat in nearby_dist_mats:
-        rph = RipsPH(_dist_mat, maxdim=maxdim, distance_matrix=True)
-        rph._call_giotto_ph()
-        assert rph.giotto_dgm is not None
-        _loss = _powered_wasserstein_distance_one_sided_from_rph_with_standard_grad(
-            rph=rph, ref_pd=ref_pds, dims=dims, order=order, 
-            X=X     # X を与えると，ペアはそのままで，X の距離行列で PH を計算
-        )
-        assert _loss.requires_grad
-        loss += _loss
-    loss /= len(nearby_dist_mats)
-    
-    return loss
 
 def vector_to_symmetric_matrix(
     d_vec: torch.Tensor,
