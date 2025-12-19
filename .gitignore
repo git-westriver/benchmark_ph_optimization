@@ -13,7 +13,7 @@ results/sample
 data/*.npy
 data/*.png
 tmp/
-private/
+# private/
 logs/
 
 notebooks/private
