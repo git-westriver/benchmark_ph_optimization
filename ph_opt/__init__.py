@@ -7,7 +7,6 @@ from .ph_loss.regularization import Regularization, RectangleRegularization
 from .ph_grad.wasserstein import powered_wasserstein_distance_one_sided, wasserstein_loss
 from .ph_grad.topk_persistence import topk_persistence_loss
 from .ph_grad.singleton import singleton_loss_from_bar_to_target
-from .ph_grad.lib.stratified_gd import dijkstra_over_swaps
 
 from .utils.visualization import is_persistence_diagram, get_max_death_of_pds, plot_pd_with_specified_lim, get_animation
 from .utils.ph_trainer import PHTrainerConfig, PHTrainer

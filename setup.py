@@ -36,6 +36,7 @@ setup(
         "ph_opt.ph_compute",
         "ph_opt.ph_compute.bin",
         "ph_opt.ph_grad",
+        "ph_opt.ph_grad.lib",
         "ph_opt.ph_loss",
         "ph_opt.scheduler",
         "ph_opt.utils",
