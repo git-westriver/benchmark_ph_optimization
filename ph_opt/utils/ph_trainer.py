@@ -167,9 +167,13 @@ class PHTrainer:
             # add loss_history, time_history to the list
             loss_history_list.append(loss_history)
             time_history_list.append(time_history)
+            
+            # Finish the trial
+            print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)
 
             # For the first trial, save X_history and create a gif
             if trial == 0:
+                print("Saving results...", flush=True, end=" ")
                 # save X_history
                 with open(self.save_dirpath / "X_history.pkl", "wb") as f:
                     pickle.dump(X_history, f)
@@ -182,8 +186,7 @@ class PHTrainer:
                                      scatter_config=self.scatter_config)
                 anim.save(self.save_dirpath / "trajectory.gif", writer='pillow')
 
-            # Finish the trial
-            print(f"Trial {trial} finished. elapsed time: {time.time() - trial_start}", flush=True)
+                print("Done", flush=True)
 
         # save loss_history_list and time_history_list
         result_dict = {
